@@ -74,9 +74,8 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-    command: npm run start:dev
+    # Runs the built production image (CMD node backend/dist/main.js).
+    # Rebuild the image after backend changes: `sudo -n docker compose build backend`
 
   frontend:
     build:
@@ -85,13 +84,15 @@ services:
     container_name: hackgb-frontend
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:3001
+    # Host port 3000 is taken by an external `open-webui` container, so we
+    # map our frontend's host side to 3005. The container still listens on
+    # 3000 internally (Next.js default).
     ports:
-      - "3000:3000"
+      - "3005:3000"
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-    command: npm run dev
+    # Runs the built standalone production image (CMD node frontend/server.js).
+    # Rebuild the image after frontend changes: `sudo -n docker compose build frontend`
 
 volumes:
   postgres-data:
