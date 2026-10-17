@@ -81,12 +81,17 @@ export class CurriculumService {
     curriculumId: string,
     chunks: { content: string; chunkIndex: number; tokenCount: number; embedding?: string; metadata?: Record<string, unknown> }[],
   ): Promise<CurriculumChunk[]> {
-    const curriculum = await this.findOne(curriculumId);
+    const curriculum = await this.curriculumRepo.findOne({
+      where: { id: curriculumId },
+    });
+    if (!curriculum) {
+      throw new Error(`Curriculum ${curriculumId} not found for addChunks`);
+    }
     const chunkEntities = chunks.map((c) =>
       this.chunkRepo.create({
         ...c,
         curriculum,
-      }),
+      } as CurriculumChunk),
     );
     const saved = await this.chunkRepo.save(chunkEntities);
 
@@ -112,26 +117,33 @@ export class CurriculumService {
   ): Promise<(CurriculumChunk & { distance: number })[]> {
     const embeddingStr = `[${embedding.join(',')}]`;
     const params: any[] = [embeddingStr, limit];
+    // The embedding column is stored as TEXT (serialized vector). The pgvector
+    // distance operators only work on `vector`-typed operands, so we cast the
+    // stored text column to ::vector for the comparison.
+    // Note: TypeORM created the column names as camelCase quoted identifiers
+    // (e.g. "curriculumId", "chunkIndex"), so the raw SQL must quote them.
     let query = `
-      SELECT c.*, 1 - (c.embedding <=> $1::vector) AS similarity
-      FROM curriculum_chunks c
+      SELECT c.*, 1 - (c."embedding"::vector <=> $1::vector) AS similarity
+      FROM "curriculum_chunks" c
     `;
     if (curriculumId) {
-      query += ' WHERE c.curriculum_id = $2';
+      query += ' WHERE c."curriculumId" = $2';
       params.splice(1, 0, curriculumId);
     }
-    query += ' ORDER BY c.embedding <=> $1::vector LIMIT $' + (curriculumId ? 3 : 2);
+    query +=
+      ' ORDER BY c."embedding"::vector <=> $1::vector LIMIT $' +
+      (curriculumId ? 3 : 2);
 
     const result = await this.chunkRepo.query(query, params);
     return result.map((row: any) => ({
       id: row.id,
       content: row.content,
-      chunkIndex: row.chunk_index,
-      tokenCount: row.token_count,
+      chunkIndex: row.chunkIndex,
+      tokenCount: row.tokenCount,
       embedding: row.embedding,
       metadata: row.metadata,
-      createdAt: row.created_at,
-      curriculum: { id: row.curriculum_id },
+      createdAt: row.createdAt,
+      curriculum: { id: row.curriculumId },
       distance: 1 - parseFloat(row.similarity),
     }));
   }

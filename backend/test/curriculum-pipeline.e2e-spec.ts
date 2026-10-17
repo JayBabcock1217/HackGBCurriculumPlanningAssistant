@@ -3,26 +3,45 @@
  *
  * Requires running services (docker-compose up):
  *   - PostgreSQL with pgvector at postgresql://hackgb:hackgb_dev_password@localhost:5432/hackgb
- *   - MinIO at localhost:9000
+ *   - RustFS (S3-compatible object store) at localhost:9000
  *
  * Run: npm run test:e2e --workspace=backend
  *
  * Pipeline under test:
  *   1. Create teacher
- *   2. Upload PDF → MinIO storage → parse → chunk → embed → pgvector
+ *   2. Upload PDF → object storage → parse → chunk → embed → pgvector
  *   3. Verify curriculum + chunks are persisted
  *   4. Vector similarity search returns relevant chunks
  *   5. Delete curriculum + file
+ *
+ * NOTE: env vars MUST be set before AppModule is imported, because
+ * TypeOrmModule.forRoot() reads process.env.DATABASE_URL at module-load
+ * time (ES import hoisting evaluates it before any statement runs).
  */
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppModule } from '../src/app.module';
 
 const PDF_PATH = path.join(__dirname, 'fixtures', 'math-unit1.pdf');
 const API = '/api';
+
+/**
+ * Set connection env vars. These must be in place BEFORE AppModule is
+ * required, because TypeOrmModule.forRoot() reads process.env.DATABASE_URL
+ * at module-load time. We require() AppModule lazily (not a static import)
+ * so we control the ordering.
+ */
+function configureEnv(): void {
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ||
+    'postgresql://hackgb:hackgb_dev_password@localhost:5432/hackgb';
+  process.env.MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || 'localhost';
+  process.env.MINIO_PORT = process.env.MINIO_PORT || '9000';
+  process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+}
 
 describe('Curriculum Pipeline (e2e)', () => {
   let app: INestApplication;
@@ -30,12 +49,10 @@ describe('Curriculum Pipeline (e2e)', () => {
   let curriculumId: string;
 
   beforeAll(async () => {
-    process.env.DATABASE_URL =
-      process.env.DATABASE_URL ||
-      'postgresql://hackgb:hackgb_dev_password@localhost:5432/hackgb';
-    process.env.MINIO_ENDPOINT = process.env.MINIO_ENDPOINT || 'localhost';
-    process.env.MINIO_PORT = process.env.MINIO_PORT || '9000';
-    process.env.NODE_ENV = 'test';
+    // Set env vars, THEN require AppModule so TypeORM reads the real values.
+    configureEnv();
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { AppModule } = require('../src/app.module');
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -177,7 +194,7 @@ describe('Curriculum Pipeline (e2e)', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/pdf');
     expect(res.headers['content-disposition']).toContain('math-unit1.pdf');
-    // File should round-trip through MinIO unchanged
+    // File should round-trip through RustFS unchanged
     const original = fs.readFileSync(PDF_PATH);
     expect(Buffer.from(res.body)).toEqual(original);
   }, 30_000);

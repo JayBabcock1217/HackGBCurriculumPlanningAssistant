@@ -16,20 +16,26 @@ services:
       timeout: 5s
       retries: 10
 
-  minio:
-    image: minio/minio:latest
-    container_name: hackgb-minio
-    command: server /data --console-address ":9001"
+  # MinIO's open-source server was archived (Apr 2026) and its Docker images
+  # are no longer published. RustFS is a fully S3-compatible drop-in
+  # replacement (same ports, works with the AWS SDK, path-style by default).
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: hackgb-rustfs
     environment:
-      MINIO_ROOT_USER: hackgb
-      MINIO_ROOT_PASSWORD: hackgb_dev_password
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: hackgb
+      RUSTFS_SECRET_KEY: hackgb_dev_password
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio-data:/data
+      - rustfs-data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -54,7 +60,8 @@ services:
     container_name: hackgb-backend
     environment:
       DATABASE_URL: postgresql://hackgb:hackgb_dev_password@postgres:5432/hackgb
-      MINIO_ENDPOINT: minio
+      # Points at the RustFS container (S3-compatible MinIO replacement)
+      MINIO_ENDPOINT: rustfs
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: hackgb
       MINIO_SECRET_KEY: hackgb_dev_password
@@ -65,7 +72,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      minio:
+      rustfs:
         condition: service_healthy
     volumes:
       - ./backend:/app
@@ -88,5 +95,5 @@ services:
 
 volumes:
   postgres-data:
-  minio-data:
+  rustfs-data:
   ollama-data:
