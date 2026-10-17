@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: hackgb-postgres
+    environment:
+      POSTGRES_DB: hackgb
+      POSTGRES_USER: hackgb
+      POSTGRES_PASSWORD: hackgb_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hackgb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: hackgb-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: hackgb
+      MINIO_ROOT_PASSWORD: hackgb_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: hackgb-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: hackgb-backend
+    environment:
+      DATABASE_URL: postgresql://hackgb:hackgb_dev_password@postgres:5432/hackgb
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: hackgb
+      MINIO_SECRET_KEY: hackgb_dev_password
+      OLLAMA_URL: http://ollama:11434
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    command: npm run start:dev
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: hackgb-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+    command: npm run dev
+
+volumes:
+  postgres-data:
+  minio-data:
+  ollama-data:

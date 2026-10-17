@@ -1,0 +1,21 @@
+{
+  "name": "hackgb-curriculum-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web-based app to assist teachers in developing personalized curricula",
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run start:dev --workspace=backend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
