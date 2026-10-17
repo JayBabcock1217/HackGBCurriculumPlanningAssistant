@@ -68,7 +68,10 @@ services:
       OLLAMA_URL: http://ollama:11434
       PORT: "3001"
     ports:
-      - "3001:3001"
+      # Host port is allocated dynamically by scripts/start.sh (first free in
+      # 3100-3199) and passed in as BACKEND_PORT. The container always listens
+      # on 3001 internally (PORT below).
+      - "${BACKEND_PORT:-3100}:3001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -81,14 +84,17 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        # Baked into the Next.js build at compile time. scripts/start.sh sets
+        # this to the allocated backend port; if it changes, the image is
+        # rebuilt (see start.sh).
+        NEXT_PUBLIC_API_URL: ${FRONTEND_API_URL:-http://localhost:3100}
     container_name: hackgb-frontend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:3001
-    # Host port 3000 is taken by an external `open-webui` container, so we
-    # map our frontend's host side to 3005. The container still listens on
-    # 3000 internally (Next.js default).
+    # Host port is allocated dynamically by scripts/start.sh (first free in
+    # 3200-3299) and passed in as FRONTEND_PORT. The container listens on 3000
+    # internally (Next.js default).
     ports:
-      - "3005:3000"
+      - "${FRONTEND_PORT:-3200}:3000"
     depends_on:
       - backend
     # Runs the built standalone production image (CMD node frontend/server.js).

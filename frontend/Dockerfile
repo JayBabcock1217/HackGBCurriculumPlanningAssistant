@@ -1,5 +1,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
+# NEXT_PUBLIC_API_URL is baked into the Next.js build at compile time.
+# scripts/start.sh passes the allocated backend port as this build arg.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3100
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY package*.json ./
 COPY frontend/package*.json ./frontend/
 RUN npm install --workspace=frontend

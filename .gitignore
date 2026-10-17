@@ -18,6 +18,10 @@ npm-debug.log*
 # Docker volumes
 docker-data/
 
+# Runtime state written by scripts/start.sh (allocated ports, baked API URL)
+.ports
+.frontend-api-url
+
 # IDE
 .vscode/
 .idea/

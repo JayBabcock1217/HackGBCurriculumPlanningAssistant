@@ -4,12 +4,16 @@
   "private": true,
   "description": "Web-based app to assist teachers in developing personalized curricula",
   "scripts": {
+    "start": "bash scripts/start.sh",
+    "stop": "bash scripts/stop.sh",
+    "status": "bash scripts/status.sh",
+    "logs": "bash scripts/logs.sh",
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev:backend": "npm run start:dev --workspace=backend",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "docker:up": "sh -c 'if docker compose version >/dev/null 2>&1; then docker compose up -d; elif command -v docker-compose >/dev/null 2>&1; then docker-compose up -d; else echo \"ERROR: Docker Compose is not installed.\\n  Arch/CachyOS: sudo pacman -S docker-compose\\n  Debian/Ubuntu: sudo apt-get install docker-compose-plugin\\n  macOS/Windows: Docker Desktop includes it.\\nThen re-run: npm run docker:up\"; exit 1; fi'",
-    "docker:down": "sh -c 'if docker compose version >/dev/null 2>&1; then docker compose down; elif command -v docker-compose >/dev/null 2>&1; then docker-compose down; else echo \"ERROR: Docker Compose is not installed.\"; exit 1; fi'"
+    "docker:up": "bash scripts/start.sh --no-build",
+    "docker:down": "bash scripts/stop.sh"
   },
   "workspaces": [
     "frontend",
