@@ -133,19 +133,15 @@ export default function CurriculaPage() {
                   <div
                     className={cn(
                       'flex h-11 w-11 items-center justify-center rounded-lg',
-                      c.fileType === 'PDF' && 'bg-red-50',
-                      c.fileType === 'DOCX' && 'bg-blue-50',
-                      c.fileType === 'GDOC' && 'bg-green-50'
+                      c.fileType === 'PDF' &&
+                        'bg-red-50 text-red-600 dark:bg-red-950/60 dark:text-red-400',
+                      c.fileType === 'DOCX' &&
+                        'bg-blue-50 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400',
+                      c.fileType === 'GDOC' &&
+                        'bg-green-50 text-green-600 dark:bg-green-950/60 dark:text-green-400'
                     )}
                   >
-                    <Icon
-                      className={cn(
-                        'h-5 w-5',
-                        c.fileType === 'PDF' && 'text-red-600',
-                        c.fileType === 'DOCX' && 'text-blue-600',
-                        c.fileType === 'GDOC' && 'text-green-600'
-                      )}
-                    />
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div>
                     <p className="text-sm font-medium">{c.title}</p>

@@ -11,6 +11,7 @@ import {
   MessageSquare,
   GraduationCap,
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -61,6 +62,16 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Theme toggle */}
+      <div className="border-t px-4 py-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-medium text-muted-foreground">
+            Appearance
+          </span>
+          <ThemeToggle />
+        </div>
+      </div>
 
       {/* User */}
       <div className="border-t p-4">

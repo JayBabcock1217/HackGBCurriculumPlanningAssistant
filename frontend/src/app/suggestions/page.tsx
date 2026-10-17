@@ -140,18 +140,18 @@ export default function SuggestionsPage() {
               </p>
 
               {s.feedback && (
-                <div className="mt-4 rounded-lg border-l-4 border-blue-300 bg-blue-50/50 p-3">
-                  <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-1">
+                <div className="mt-4 rounded-lg border-l-4 border-blue-300 bg-blue-50/50 p-3 dark:border-blue-700 dark:bg-blue-950/30">
+                  <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 uppercase tracking-wide mb-1">
                     Teacher Feedback
                   </p>
-                  <p className="text-sm text-blue-900">{s.feedback}</p>
+                  <p className="text-sm text-blue-900 dark:text-blue-200">{s.feedback}</p>
                 </div>
               )}
             </CardContent>
             <CardFooter className="gap-2">
               {s.status === 'pending' ? (
                 <>
-                  <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
                     <Check />
                     Accept
                   </Button>

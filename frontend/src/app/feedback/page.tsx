@@ -130,11 +130,11 @@ export default function FeedbackPage() {
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
-              <Check className="h-5 w-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/60">
+              <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {counts.accepted}
               </p>
               <p className="text-xs text-muted-foreground">Accepted</p>
@@ -143,11 +143,11 @@ export default function FeedbackPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
-              <Pencil className="h-5 w-5 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-950/60">
+              <Pencil className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {counts.modified}
               </p>
               <p className="text-xs text-muted-foreground">Modified</p>
@@ -156,11 +156,11 @@ export default function FeedbackPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-3 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
-              <X className="h-5 w-5 text-red-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/60">
+              <X className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {counts.rejected}
               </p>
               <p className="text-xs text-muted-foreground">Rejected</p>
@@ -241,14 +241,14 @@ export default function FeedbackPage() {
       </div>
 
       {/* Info Box */}
-      <Card className="border-blue-200 bg-blue-50/50">
+      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-950/30">
         <CardContent className="flex gap-3 p-5">
-          <Info className="h-5 w-5 shrink-0 text-blue-600" />
+          <Info className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
           <div>
-            <p className="text-sm font-semibold text-blue-900">
+            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
               How feedback guides suggestions
             </p>
-            <p className="mt-1 text-sm text-blue-700 leading-relaxed">
+            <p className="mt-1 text-sm text-blue-700 dark:text-blue-200 leading-relaxed">
               Before generating new suggestions, the system searches your past
               feedback for relevant entries and includes them in the AI&apos;s
               context. For example, after you rejected the division lesson for
