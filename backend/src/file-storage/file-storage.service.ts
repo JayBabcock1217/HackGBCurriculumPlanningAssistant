@@ -28,12 +28,14 @@ export class FileStorageService {
       },
       forcePathStyle: true,
     });
-
-    this.ensureBucketExists();
   }
 
   private readonly BUCKET = 'hackgb-curricula';
 
+  /**
+   * Create the bucket on first use (idempotent — ignores "already exists").
+   * Called lazily so app startup doesn't fail if MinIO is still booting.
+   */
   private async ensureBucketExists() {
     try {
       // Check if bucket exists by listing
@@ -59,6 +61,7 @@ export class FileStorageService {
     body: Buffer,
     contentType: string,
   ): Promise<string> {
+    await this.ensureBucketExists();
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.BUCKET,
@@ -82,6 +85,7 @@ export class FileStorageService {
   }
 
   async deleteFile(key: string): Promise<void> {
+    await this.ensureBucketExists();
     await this.s3Client.send(
       new DeleteObjectCommand({
         Bucket: this.BUCKET,

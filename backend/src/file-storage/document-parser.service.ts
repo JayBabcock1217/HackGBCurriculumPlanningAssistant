@@ -25,22 +25,34 @@ export class DocumentParserService {
   }
 
   private async parsePdf(buffer: Buffer): Promise<ParsedDocument> {
-    // pdf-parse is a CommonJS module that doesn't play well with dynamic import
-    // in ESM contexts, so we use require
-    const pdfParse = require('pdf-parse');
-    const data = await pdfParse(buffer);
+    // pdf-parse v2 exports the PDFParse class (v1 exported a plain function)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pdfParseModule = require('pdf-parse');
+    const PDFParse = pdfParseModule.PDFParse;
+
+    // NOTE: pdfjs spins up a worker via dynamic import, which requires Node's
+    // --experimental-vm-modules flag when running under Jest. The `test` and
+    // `test:e2e` npm scripts set NODE_OPTIONS accordingly. In a normal
+    // (non-Jest) runtime this works out of the box.
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const result = await parser.getText();
+
+    // pdf-parse v2 returns { text, pages, total }; v1 returned a flat string
+    const text = typeof result === 'string' ? result : result.text || '';
+    const pages =
+      typeof result === 'object' && result !== null
+        ? result.total ?? result.pages?.length
+        : undefined;
 
     this.logger.log(
-      `Parsed PDF: ${data.numpages} pages, ${data.text.length} characters`,
+      `Parsed PDF: ${pages ?? '?'} pages, ${text.length} characters`,
     );
 
     return {
-      text: data.text,
-      pages: data.numpages,
+      text,
+      pages,
       metadata: {
-        info: data.info || {},
-        subject: data.info?.Subject || '',
-        title: data.info?.Title || '',
+        title: '',
       },
     };
   }

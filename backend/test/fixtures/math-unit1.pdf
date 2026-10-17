@@ -1,0 +1,77 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 560 >>
+stream
+BT
+/F1 14 Tf
+72 720 Td
+(Third Grade Math - Unit 1: Addition and Subtraction) Tj
+0 -25 Td
+/F1 12 Tf
+(Lesson 1: Introduction to Two-Digit Addition) Tj
+0 -20 Td
+/F1 11 Tf
+(Students will learn how to add two-digit numbers with and without carrying.) Tj
+0 -18 Td
+(We use base ten blocks to represent tens and ones before writing the sum.) Tj
+0 -18 Td
+(Example: 34 plus 25. First add the ones: 4 plus 5 is 9.) Tj
+0 -18 Td(Then add the tens: 30 plus 20 is 50, so 34 plus 25 is 59.) Tj
+0 -25 Td
+/F1 12 Tf
+(Lesson 2: Adding with Regrouping) Tj
+0 -20 Td
+/F1 11 Tf
+(When the ones column totals ten or more, we regroup one ten.) Tj
+0 -18 Td
+(Example: 47 plus 28. The ones give 7 plus 8 is 15, write 5 carry 1.) Tj
+0 -18 Td
+(The tens give 4 plus 2 plus 1 is 7, so the sum is 75.) Tj
+0 -25 Td
+/F1 12 Tf
+(Lesson 3: Subtraction Basics) Tj
+0 -20 Td
+/F1 11 Tf
+(Subtraction finds the difference between two numbers.) Tj
+0 -18 Td
+(Students practice with number lines and base ten blocks.) Tj
+0 -18 Td
+(Example: 62 minus 35 equals 27 using the standard algorithm.) Tj
+0 -25 Td
+/F1 12 Tf
+(Lesson 4: Word Problems) Tj
+0 -20 Td
+/F1 11 Tf
+(Students read a story and decide whether to add or subtract.) Tj
+0 -18 Td
+(They write the number sentence, solve it, and check the answer.) Tj
+0 -18 Td
+(Practice includes coin counting and sharing scenarios.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000189 00000 n 
+0000000870 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+935
+%%EOF

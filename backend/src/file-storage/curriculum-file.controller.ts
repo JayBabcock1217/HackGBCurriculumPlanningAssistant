@@ -113,10 +113,11 @@ export class CurriculumFileController {
   }
 
   /**
-   * DELETE /api/curricula/:id
-   * Delete a curriculum and its file
+   * DELETE /api/curricula/:id/file
+   * Delete a curriculum's stored file and its database record.
+   * (Uses /file suffix to avoid shadowing CurriculumController's DELETE :id)
    */
-  @Delete(':id')
+  @Delete(':id/file')
   async delete(@Param('id') id: string): Promise<void> {
     await this.processingService.deleteCurriculum(id);
   }
