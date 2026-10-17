@@ -79,7 +79,8 @@ Database
 
 File Storage
 ------------
-- MinIO (self-hosted S3-compatible) for uploaded documents
+- RustFS (self-hosted S3-compatible) for uploaded documents
+  [MinIO was archived Apr 2026; its Docker images are no longer published]
 - Local filesystem option for single-server deployments
 
 LLM Integration
@@ -128,7 +129,7 @@ Authentication
 Deployment
 ----------
 - Docker Compose for single-server, self-hosted deployment
-- Services: frontend, backend, PostgreSQL, MinIO, Ollama
+- Services: frontend, backend, PostgreSQL, RustFS, Ollama
 - Privacy-first: student data stays on school's infrastructure
 - Cloud deployment as an option for non-privacy-sensitive use
 

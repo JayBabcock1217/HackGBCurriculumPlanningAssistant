@@ -41,7 +41,9 @@ Deliverable:
 Chunk 3: File Storage + Curriculum Parsing
 -------------------------------------------
 What:
-  - MinIO integration (upload/download)
+  - RustFS integration (upload/download) [MinIO was archived Apr 2026;
+    its Docker images are no longer published, so RustFS is the S3-compatible
+    drop-in]
   - File parsers for PDF/Word/Docs
   - Text extraction
   - Chunking
@@ -49,7 +51,7 @@ What:
   - Storage to pgvector
 
 How to test:
-  - Upload a test PDF, verify it is stored in MinIO
+  - Upload a test PDF, verify it is stored in RustFS
   - Parse a sample PDF, verify extracted text is correct
   - Chunk a document, verify chunk size/overlap
   - Embed a chunk, verify vector is stored in pgvector
