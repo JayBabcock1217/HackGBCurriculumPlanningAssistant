@@ -8,8 +8,8 @@
     "dev:backend": "npm run start:dev --workspace=backend",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
+    "docker:up": "docker compose up -d || docker-compose up -d",
+    "docker:down": "docker compose down || docker-compose down"
   },
   "workspaces": [
     "frontend",
