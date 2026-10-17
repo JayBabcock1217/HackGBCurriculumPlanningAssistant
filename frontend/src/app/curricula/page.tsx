@@ -1,12 +1,29 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Upload,
+  FileText,
+  FileSpreadsheet,
+  File,
+  MoreHorizontal,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+
 const curricula = [
   {
     id: '1',
     title: '3rd Grade Math - Unit 1: Addition & Subtraction',
     subject: 'Math',
-    gradeLevel: '3rd',
     fileType: 'PDF',
     fileName: 'math-unit1.pdf',
-    chunkCount: 24,
+    chunks: 24,
     uploaded: 'Oct 1, 2025',
     status: 'processed',
   },
@@ -14,10 +31,9 @@ const curricula = [
     id: '2',
     title: '3rd Grade Math - Unit 2: Multiplication',
     subject: 'Math',
-    gradeLevel: '3rd',
     fileType: 'PDF',
     fileName: 'math-unit2.pdf',
-    chunkCount: 18,
+    chunks: 18,
     uploaded: 'Oct 5, 2025',
     status: 'processed',
   },
@@ -25,10 +41,9 @@ const curricula = [
     id: '3',
     title: '3rd Grade Math - Unit 3: Division',
     subject: 'Math',
-    gradeLevel: '3rd',
     fileType: 'PDF',
     fileName: 'math-unit3.pdf',
-    chunkCount: 15,
+    chunks: 15,
     uploaded: 'Oct 10, 2025',
     status: 'processing',
   },
@@ -36,10 +51,9 @@ const curricula = [
     id: '4',
     title: '3rd Grade Reading - Fiction Unit',
     subject: 'Reading',
-    gradeLevel: '3rd',
-    fileType: 'Word',
+    fileType: 'DOCX',
     fileName: 'reading-fiction.docx',
-    chunkCount: 32,
+    chunks: 32,
     uploaded: 'Oct 2, 2025',
     status: 'processed',
   },
@@ -47,20 +61,33 @@ const curricula = [
     id: '5',
     title: '3rd Grade Science - Life Cycles',
     subject: 'Science',
-    gradeLevel: '3rd',
-    fileType: 'Google Docs',
+    fileType: 'GDOC',
     fileName: 'science-lifecycles',
-    chunkCount: 0,
+    chunks: 0,
     uploaded: 'Oct 16, 2025',
     status: 'uploading',
   },
 ];
 
-const statusStyles: Record<string, string> = {
-  processed: 'bg-green-100 text-green-800',
-  processing: 'bg-yellow-100 text-yellow-800',
-  uploading: 'bg-blue-100 text-blue-800',
-  error: 'bg-red-100 text-red-800',
+const statusVariant: Record<
+  string,
+  'success' | 'warning' | 'info' | 'destructive'
+> = {
+  processed: 'success',
+  processing: 'warning',
+  uploading: 'info',
+  error: 'destructive',
+};
+
+const fileIcon = (type: string) => {
+  switch (type) {
+    case 'PDF':
+      return FileText;
+    case 'DOCX':
+      return FileSpreadsheet;
+    default:
+      return File;
+  }
 };
 
 export default function CurriculaPage() {
@@ -68,62 +95,80 @@ export default function CurriculaPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Curricula</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight">Curricula</h1>
+          <p className="text-sm text-muted-foreground">
             5 curricula · 89 chunks indexed
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-          + Upload Curriculum
-        </button>
+        <Button>
+          <Upload />
+          Upload Curriculum
+        </Button>
       </div>
 
-      {/* Upload area */}
-      <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-blue-400 transition-colors cursor-pointer">
-        <p className="text-4xl mb-2">📄</p>
-        <p className="text-slate-600 font-medium">
-          Drag &amp; drop files here, or click to browse
-        </p>
-        <p className="text-sm text-slate-400 mt-1">
-          Supports PDF, Word (.docx), Google Docs · Sync from Google Classroom
-          or Canvas
-        </p>
-      </div>
-
-      {/* Curricula list */}
-      <div className="bg-white rounded-xl shadow-sm divide-y divide-slate-100">
-        {curricula.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center justify-between px-6 py-4 hover:bg-slate-50"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-lg">
-                {c.fileType === 'PDF' && '📕'}
-                {c.fileType === 'Word' && '📘'}
-                {c.fileType === 'Google Docs' && '📗'}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-900">
-                  {c.title}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {c.fileType} · {c.chunkCount} chunks · {c.uploaded}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span
-                className={`text-xs px-2 py-1 rounded-full font-medium ${statusStyles[c.status]}`}
-              >
-                {c.status}
-              </span>
-              <button className="text-sm text-slate-400 hover:text-slate-600">
-                Manage
-              </button>
-            </div>
+      {/* Upload Zone */}
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Upload className="h-7 w-7 text-primary" />
           </div>
-        ))}
+          <p className="text-sm font-medium">
+            Drag &amp; drop files here, or click to browse
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Supports PDF, Word (.docx), Google Docs · Sync from Google
+            Classroom or Canvas
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Curricula List */}
+      <div className="space-y-3">
+        {curricula.map((c) => {
+          const Icon = fileIcon(c.fileType);
+          return (
+            <Card key={c.id}>
+              <CardContent className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-4">
+                  <div
+                    className={cn(
+                      'flex h-11 w-11 items-center justify-center rounded-lg',
+                      c.fileType === 'PDF' && 'bg-red-50',
+                      c.fileType === 'DOCX' && 'bg-blue-50',
+                      c.fileType === 'GDOC' && 'bg-green-50'
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        'h-5 w-5',
+                        c.fileType === 'PDF' && 'text-red-600',
+                        c.fileType === 'DOCX' && 'text-blue-600',
+                        c.fileType === 'GDOC' && 'text-green-600'
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{c.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.fileType} · {c.chunks} chunks · {c.uploaded}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant={statusVariant[c.status]}
+                    className="capitalize"
+                  >
+                    {c.status}
+                  </Badge>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

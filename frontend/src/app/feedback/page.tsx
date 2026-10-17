@@ -1,8 +1,27 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Check,
+  Pencil,
+  X,
+  Info,
+  Trash2,
+  Edit,
+} from 'lucide-react';
+
 const feedback = [
   {
     id: '1',
     action: 'rejected',
-    suggestionTitle: 'Division Concept - Equal Groups',
+    suggestion: 'Division Concept - Equal Groups',
     student: 'Sofia Rodriguez',
     reason: 'Too much text, needs visual approach',
     comment:
@@ -13,7 +32,7 @@ const feedback = [
   {
     id: '2',
     action: 'modified',
-    suggestionTitle: 'Multiplication Tables - Gamified Drill',
+    suggestion: 'Multiplication Tables - Gamified Drill',
     student: 'Liam Chen',
     reason: 'Adjusted difficulty level',
     comment:
@@ -24,7 +43,7 @@ const feedback = [
   {
     id: '3',
     action: 'accepted',
-    suggestionTitle: 'Word Problems - Visual Story Approach',
+    suggestion: 'Word Problems - Visual Story Approach',
     student: 'Emma Davis',
     reason: 'Perfect fit for Emma',
     comment:
@@ -35,7 +54,7 @@ const feedback = [
   {
     id: '4',
     action: 'accepted',
-    suggestionTitle: 'Fraction Addition - Scaffolded Lesson',
+    suggestion: 'Fraction Addition - Scaffolded Lesson',
     student: 'Sofia Rodriguez',
     reason: 'Good scaffolding approach',
     comment:
@@ -46,7 +65,7 @@ const feedback = [
   {
     id: '5',
     action: 'modified',
-    suggestionTitle: 'Reading Comprehension - Inference Practice',
+    suggestion: 'Reading Comprehension - Inference Practice',
     student: 'Emma Davis',
     reason: 'Shortened activity length',
     comment:
@@ -57,7 +76,7 @@ const feedback = [
   {
     id: '6',
     action: 'rejected',
-    suggestionTitle: 'Multiplication - Timed Drill',
+    suggestion: 'Multiplication - Timed Drill',
     student: 'Ava Patel',
     reason: 'Not suitable for ADHD',
     comment:
@@ -67,16 +86,25 @@ const feedback = [
   },
 ];
 
-const actionStyles: Record<string, string> = {
-  accepted: 'bg-green-100 text-green-800',
-  modified: 'bg-blue-100 text-blue-800',
-  rejected: 'bg-red-100 text-red-800',
-};
-
-const actionIcons: Record<string, string> = {
-  accepted: '✓',
-  modified: '✏️',
-  rejected: '✕',
+const actionConfig: Record<
+  string,
+  { variant: 'success' | 'info' | 'destructive'; icon: React.ReactNode; label: string }
+> = {
+  accepted: {
+    variant: 'success',
+    icon: <Check className="h-3 w-3" />,
+    label: 'Accepted',
+  },
+  modified: {
+    variant: 'info',
+    icon: <Pencil className="h-3 w-3" />,
+    label: 'Modified',
+  },
+  rejected: {
+    variant: 'destructive',
+    icon: <X className="h-3 w-3" />,
+    label: 'Rejected',
+  },
 };
 
 export default function FeedbackPage() {
@@ -89,104 +117,148 @@ export default function FeedbackPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">
+        <h1 className="text-2xl font-bold tracking-tight">
           Teacher Feedback
         </h1>
-        <p className="text-slate-500 mt-1">
+        <p className="text-sm text-muted-foreground">
           Your feedback guides the AI&apos;s future suggestions. Edit or delete
           any entry at any time.
         </p>
       </div>
 
-      {/* Summary */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-bold text-green-600">
-            {counts.accepted}
-          </p>
-          <p className="text-xs text-slate-500">Accepted</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-bold text-blue-600">
-            {counts.modified}
-          </p>
-          <p className="text-xs text-slate-500">Modified</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-4 text-center">
-          <p className="text-2xl font-bold text-red-600">
-            {counts.rejected}
-          </p>
-          <p className="text-xs text-slate-500">Rejected</p>
-        </div>
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100">
+              <Check className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-green-600">
+                {counts.accepted}
+              </p>
+              <p className="text-xs text-muted-foreground">Accepted</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
+              <Pencil className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-blue-600">
+                {counts.modified}
+              </p>
+              <p className="text-xs text-muted-foreground">Modified</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+              <X className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-red-600">
+                {counts.rejected}
+              </p>
+              <p className="text-xs text-muted-foreground">Rejected</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Feedback list */}
+      {/* Feedback Timeline */}
       <div className="space-y-3">
-        {feedback.map((f) => (
-          <div
-            key={f.id}
-            className="bg-white rounded-xl shadow-sm p-5"
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <span
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${actionStyles[f.action]}`}
-                >
-                  {actionIcons[f.action]}
-                </span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {f.suggestionTitle}
-                    </h3>
-                    {f.edited && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-                        edited
-                      </span>
-                    )}
+        {feedback.map((f) => {
+          const config = actionConfig[f.action];
+          return (
+            <Card key={f.id}>
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <Badge
+                      variant={config.variant}
+                      className="gap-1"
+                    >
+                      {config.icon}
+                      {config.label}
+                    </Badge>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">
+                          {f.suggestion}
+                        </p>
+                        {f.edited && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            <Edit className="mr-1 h-2.5 w-2.5" />
+                            Edited
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {f.student} · {f.date}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-500">
-                    {f.student} · {f.date}
-                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="text-xs text-slate-400 hover:text-blue-600">
-                  Edit
-                </button>
-                <button className="text-xs text-slate-400 hover:text-red-600">
-                  Delete
-                </button>
-              </div>
-            </div>
 
-            <p className="text-sm text-slate-600 mt-3 ml-11">
-              <span className="font-medium text-slate-700">
-                Reason:
-              </span>{' '}
-              {f.reason}
+                <Separator className="my-3" />
+
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Reason
+                  </p>
+                  <p className="text-sm">{f.reason}</p>
+                </div>
+                <div className="mt-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Notes
+                  </p>
+                  <p className="text-sm text-foreground/80">{f.comment}</p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Info Box */}
+      <Card className="border-blue-200 bg-blue-50/50">
+        <CardContent className="flex gap-3 p-5">
+          <Info className="h-5 w-5 shrink-0 text-blue-600" />
+          <div>
+            <p className="text-sm font-semibold text-blue-900">
+              How feedback guides suggestions
             </p>
-            <p className="text-sm text-slate-500 mt-1 ml-11 leading-relaxed">
-              {f.comment}
+            <p className="mt-1 text-sm text-blue-700 leading-relaxed">
+              Before generating new suggestions, the system searches your past
+              feedback for relevant entries and includes them in the AI&apos;s
+              context. For example, after you rejected the division lesson for
+              Sofia, the AI now knows to prioritize visual and hands-on
+              approaches with minimal text for ELL students. Recent feedback
+              carries more weight than older entries.
             </p>
           </div>
-        ))}
-      </div>
-
-      {/* How it works */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-blue-900 mb-2">
-          How feedback guides suggestions
-        </h3>
-        <p className="text-sm text-blue-700 leading-relaxed">
-          Before generating new suggestions, the system searches your past
-          feedback for relevant entries and includes them in the AI&apos;s
-          context. For example, after you rejected the division lesson for
-          Sofia, the AI now knows to prioritize visual and hands-on approaches
-          with minimal text for ELL students. Recent feedback carries more
-          weight than older entries.
-        </p>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

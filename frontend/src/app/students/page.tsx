@@ -1,209 +1,197 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { UserPlus, Eye } from 'lucide-react';
+
 const students = [
   {
     id: '1',
-    firstName: 'Emma',
-    lastName: 'Davis',
+    name: 'Emma Davis',
     grade: '3rd',
-    readingLevel: 3.2,
-    mathAbility: 2.8,
-    skills: ['addition', 'subtraction', 'phonics'],
-    iep: 'IEP - extra time on tests, prefer visual materials',
-    ell: null,
-    learningDifferences: ['dyslexia'],
-    socialEmotional: 'Shy but improving. Works well in small groups.',
+    reading: 3.2,
+    math: 2.8,
+    flags: ['IEP', 'Dyslexia'],
     progress: [
-      { date: 'Oct 15', skill: 'Addition', score: 82, max: 100 },
-      { date: 'Oct 10', skill: 'Phonics', score: 75, max: 100 },
-      { date: 'Oct 5', skill: 'Subtraction', score: 78, max: 100 },
+      { skill: 'Addition', score: 82, max: 100, date: 'Oct 15' },
+      { skill: 'Phonics', score: 75, max: 100, date: 'Oct 10' },
     ],
   },
   {
     id: '2',
-    firstName: 'Liam',
-    lastName: 'Chen',
+    name: 'Liam Chen',
     grade: '3rd',
-    readingLevel: 3.5,
-    mathAbility: 3.1,
-    skills: ['addition', 'subtraction', 'multiplication'],
-    iep: null,
-    ell: null,
-    learningDifferences: [],
-    socialEmotional: 'Confident and engaged. Good peer tutor.',
+    reading: 3.5,
+    math: 3.1,
+    flags: [],
     progress: [
-      { date: 'Oct 15', skill: 'Multiplication', score: 88, max: 100 },
-      { date: 'Oct 10', skill: 'Addition', score: 92, max: 100 },
-      { date: 'Oct 5', skill: 'Subtraction', score: 85, max: 100 },
+      { skill: 'Multiplication', score: 88, max: 100, date: 'Oct 15' },
+      { skill: 'Addition', score: 92, max: 100, date: 'Oct 10' },
     ],
   },
   {
     id: '3',
-    firstName: 'Sofia',
-    lastName: 'Rodriguez',
+    name: 'Sofia Rodriguez',
     grade: '3rd',
-    readingLevel: 2.9,
-    mathAbility: 2.5,
-    skills: ['phonics', 'basic addition'],
-    iep: null,
-    ell: 'Spanish - intermediate English proficiency',
-    learningDifferences: [],
-    socialEmotional: 'Eager to participate. Needs extra time to process in English.',
+    reading: 2.9,
+    math: 2.5,
+    flags: ['ELL'],
     progress: [
-      { date: 'Oct 15', skill: 'Phonics', score: 68, max: 100 },
-      { date: 'Oct 10', skill: 'Addition', score: 71, max: 100 },
+      { skill: 'Phonics', score: 68, max: 100, date: 'Oct 15' },
+      { skill: 'Addition', score: 71, max: 100, date: 'Oct 10' },
     ],
   },
   {
     id: '4',
-    firstName: 'Noah',
-    lastName: 'Williams',
+    name: 'Noah Williams',
     grade: '3rd',
-    readingLevel: 3.8,
-    mathAbility: 3.4,
-    skills: ['addition', 'subtraction', 'multiplication', 'fractions'],
-    iep: null,
-    ell: null,
-    learningDifferences: [],
-    socialEmotional: 'Strong leader. Ready for extension activities.',
+    reading: 3.8,
+    math: 3.4,
+    flags: [],
     progress: [
-      { date: 'Oct 15', skill: 'Fractions', score: 80, max: 100 },
-      { date: 'Oct 10', skill: 'Multiplication', score: 90, max: 100 },
+      { skill: 'Fractions', score: 80, max: 100, date: 'Oct 15' },
+      { skill: 'Multiplication', score: 90, max: 100, date: 'Oct 10' },
     ],
   },
   {
     id: '5',
-    firstName: 'Ava',
-    lastName: 'Patel',
+    name: 'Ava Patel',
     grade: '3rd',
-    readingLevel: 3.1,
-    mathAbility: 3.3,
-    skills: ['addition', 'subtraction', 'multiplication'],
-    iep: '504 - prefer standing desk, breaks as needed',
-    ell: null,
-    learningDifferences: ['ADHD'],
-    socialEmotional: 'Bright and creative. Benefits from movement breaks.',
+    reading: 3.1,
+    math: 3.3,
+    flags: ['504', 'ADHD'],
     progress: [
-      { date: 'Oct 15', skill: 'Multiplication', score: 85, max: 100 },
-      { date: 'Oct 10', skill: 'Addition', score: 91, max: 100 },
+      { skill: 'Multiplication', score: 85, max: 100, date: 'Oct 15' },
+      { skill: 'Addition', score: 91, max: 100, date: 'Oct 10' },
     ],
   },
 ];
+
+const flagVariant: Record<string, 'purple' | 'teal' | 'amber'> = {
+  IEP: 'purple',
+  ELL: 'teal',
+  '504': 'amber',
+  ADHD: 'amber',
+  Dyslexia: 'amber',
+};
 
 export default function StudentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Students</h1>
-          <p className="text-slate-500 mt-1">
+          <h1 className="text-2xl font-bold tracking-tight">Students</h1>
+          <p className="text-sm text-muted-foreground">
             24 students in 3rd Grade Math
           </p>
         </div>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-          + Add Student
-        </button>
+        <Button>
+          <UserPlus />
+          Add Student
+        </Button>
       </div>
 
-      <div className="space-y-4">
-        {students.map((student) => (
-          <div
-            key={student.id}
-            className="bg-white rounded-xl shadow-sm"
-          >
-            <div className="flex items-center justify-between p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
-                  {student.firstName[0]}
-                  {student.lastName[0]}
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {student.firstName} {student.lastName}
-                  </h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                      {student.grade}
-                    </span>
-                    {student.iep && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-medium">
-                        {student.iep.split(' - ')[0]}
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[200px]">Student</TableHead>
+              <TableHead className="w-[80px]">Reading</TableHead>
+              <TableHead className="w-[80px]">Math</TableHead>
+              <TableHead className="w-[150px]">Flags</TableHead>
+              <TableHead>Recent Progress</TableHead>
+              <TableHead className="w-[80px] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {students.map((student) => (
+              <TableRow key={student.id}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarFallback className="text-xs font-bold">
+                        {student.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{student.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {student.grade} Grade
+                      </p>
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span className="font-semibold">{student.reading}</span>
+                </TableCell>
+                <TableCell>
+                  <span className="font-semibold">{student.math}</span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {student.flags.length > 0 ? (
+                      student.flags.map((flag) => (
+                        <Badge
+                          key={flag}
+                          variant={flagVariant[flag] || 'secondary'}
+                          className="text-[10px]"
+                        >
+                          {flag}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        —
                       </span>
                     )}
-                    {student.ell && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-medium">
-                        ELL
-                      </span>
-                    )}
-                    {student.learningDifferences.map((ld) => (
-                      <span
-                        key={ld}
-                        className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-medium"
-                      >
-                        {ld}
-                      </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-1.5">
+                    {student.progress.map((p) => (
+                      <div key={p.skill} className="flex items-center gap-2">
+                        <span className="w-20 text-xs text-muted-foreground">
+                          {p.skill}
+                        </span>
+                        <Progress
+                          value={(p.score / p.max) * 100}
+                          className="h-1.5 w-24"
+                        />
+                        <span className="text-xs font-medium">
+                          {p.score}
+                        </span>
+                      </div>
                     ))}
                   </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-6">
-                <div className="text-center">
-                  <p className="text-xs text-slate-400">Reading</p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {student.readingLevel}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-slate-400">Math</p>
-                  <p className="text-xl font-bold text-slate-900">
-                    {student.mathAbility}
-                  </p>
-                </div>
-                <button className="text-sm text-blue-600 hover:text-blue-800">
-                  View Profile →
-                </button>
-              </div>
-            </div>
-
-            {/* Progress */}
-            <div className="px-6 pb-4">
-              <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-                Recent Progress
-              </p>
-              <div className="flex gap-4">
-                {student.progress.map((p) => (
-                  <div
-                    key={p.date}
-                    className="flex-1 bg-slate-50 rounded-lg p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{p.skill}</span>
-                      <span className="text-xs font-medium text-slate-700">
-                        {p.score}/{p.max}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 bg-slate-200 rounded-full">
-                      <div
-                        className="h-1.5 rounded-full bg-blue-500"
-                        style={{ width: `${(p.score / p.max) * 100}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{p.date}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="px-6 pb-6">
-              <p className="text-xs text-slate-500">
-                <span className="font-medium text-slate-600">
-                  Social/Emotional:
-                </span>{' '}
-                {student.socialEmotional}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }
