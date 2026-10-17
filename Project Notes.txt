@@ -1,0 +1,6 @@
+High Level Description: Web based app to assist teachers in developing personalized curriculums.
+- Teacher uploads curriculum PDF files to the assistants database
+- Teacher creates an academic profile for each student, which is used to track progress, skills, reading level, math ability, etc.
+- Connect either a local or cloud LLM model
+- As tasked, LLM model will look over student data, and compare to currculum goals, and make suggestions that the teacher can use to implement as individualized lessons for each student depending on where they       are at
+- Teacher still decides what gets taught, and does the actual teaching, the assistant simply provides several lesson plan options, or suggests ways to help the student in an individualized ways

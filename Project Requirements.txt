@@ -1,0 +1,152 @@
+Project Requirements - Personalized Curriculum Assistant
+=========================================================
+
+Core Concept: Web-based app to assist teachers in developing personalized
+curricula. The teacher always decides what gets taught and does the actual
+teaching; the assistant provides suggestions and options.
+
+Core Features
+-------------
+1. Curriculum Import
+   - Teacher uploads curriculum files to the assistant's database
+   - Supports PDF, Word, and Google Docs
+   - Syncs with Google Classroom and Canvas
+   - Supports SCORM/xAPI standards
+
+2. Student Academic Profiles
+   - Teacher creates an academic profile for each student
+   - Tracks progress, skills, reading level, math ability, and more
+   - Multi-modal progress tracking: IEP/504 plans, ELL status,
+     learning differences, and social-emotional notes
+
+3. LLM Integration
+   - Connect either a local or cloud LLM model
+
+4. Personalized Lesson Suggestions
+   - LLM reviews student data against curriculum goals
+   - Generates lesson plan options and individualized support suggestions
+   - Teacher reviews, modifies, or rejects suggestions
+
+5. Resource Generation (OPTIONAL - teacher-initiated)
+   - Can generate worksheets, readings, practice problems, etc.
+   - NOT generated automatically - significantly slower
+   - Teacher explicitly requests it when they want it
+   - Disabled by default
+
+6. Teacher Feedback System
+   - All feedback from the teacher is stored in the system
+   - Teachers can edit, update, or delete their feedback at any time
+   - Stored feedback directly guides the model's future suggestions
+   - When a teacher rejects or modifies a suggestion, the reason is
+     captured and used to improve subsequent recommendations
+   - This creates a human-in-the-loop learning system where the model
+     gets better over time as the teacher refines its understanding
+
+7. Progress Dashboards
+   - Per-student timelines showing skill mastery and growth over time
+   - Per-class timelines for overall class progress
+   - Visual dashboards for teachers to quickly assess where students are
+
+8. Multi-language Support
+   - UI available in multiple languages
+   - Generated content (lesson plans, suggestions, resources)
+     supports multiple languages
+
+Technical Architecture
+----------------------
+Stack: Full TypeScript (frontend + backend)
+
+Frontend
+--------
+- Next.js (React) - Single-Page App with SSR
+- Dashboard-heavy UI for profiles, timelines, suggestions
+- i18n support for multi-language UI
+
+Backend
+-------
+- Node.js + NestJS (TypeScript)
+- REST/GraphQL API
+- Modular architecture: curriculum, students, llm, feedback,
+  dashboards as distinct modules
+
+Database
+--------
+- PostgreSQL + pgvector
+  * Structured data: student profiles, skills, progress,
+    feedback, lesson plans, curriculum metadata
+  * Vector embeddings: curriculum chunks for RAG
+- Single database for both relational and vector data
+
+File Storage
+------------
+- MinIO (self-hosted S3-compatible) for uploaded documents
+- Local filesystem option for single-server deployments
+
+LLM Integration
+---------------
+- Custom LLM Gateway (adapter pattern)
+  * Abstracts provider behind a single interface
+  * Implementations: OpenAI, Anthropic, Ollama (local)
+  * Swap models via config, no code changes
+- Local model deployment:
+  * Ollama for initial development
+  * vLLM for production / higher throughput
+- Embedding models:
+  * Local: nomic-embed-text or mxbai-embed-large
+  * Cloud: OpenAI text-embedding-3-small
+
+Curriculum Processing Pipeline
+------------------------------
+Upload -> Parse -> Text Extraction -> Chunking ->
+Embedding -> pgvector (RAG for LLM queries)
+
+Parsing:
+- PDF: pdf-parse or pdfjs
+- Word: mammoth.js
+- Google Docs: Google Docs API
+- Normalization: consistent markdown output
+
+Feedback Loop
+-------------
+- Each LLM suggestion gets a unique ID
+- Teacher feedback (accept/modify/reject + reason)
+  tied to suggestion ID
+- Before each LLM call, system retrieves relevant
+  past feedback via pgvector similarity search
+- Retrieved feedback injected into system prompt
+- Feedback is editable by teacher; edits update
+  stored version used in future prompts
+- Recency weighting: recent feedback weighted
+  more heavily than older feedback
+
+Authentication
+--------------
+- NextAuth.js for initial implementation
+- Role-based access: teacher, admin
+- Multi-tenant capable (school-level isolation)
+
+Deployment
+----------
+- Docker Compose for single-server, self-hosted deployment
+- Services: frontend, backend, PostgreSQL, MinIO, Ollama
+- Privacy-first: student data stays on school's infrastructure
+- Cloud deployment as an option for non-privacy-sensitive use
+
+Optional Features (if time allows)
+----------------------------------
+- Collaborative planning (multiple teachers of same subject)
+- Admin view for department heads/principals (school-level curriculum
+  coverage, no individual student data)
+- Export to LMS (Canvas, Google Classroom, Moodle)
+- Offline/lightweight mode for poor connectivity
+- Guardian/parent communication and progress summaries
+- Student self-assessment input
+- Standards gap analysis and intervention planning
+- Small-group grouping suggestions
+- Formative check-in generation (exit tickets, quizzes)
+- Time-aware scheduling (class period length, weekly calendar)
+- Learning objective tagging with standards alignment
+  (Common Core, state standards)
+- Curriculum versioning, sharing, and reuse
+- Privacy-first architecture (FERPA/COPPA compliance, data
+  minimization, role-based access, audit logs)
