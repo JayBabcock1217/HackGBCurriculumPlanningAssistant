@@ -27,7 +27,10 @@ export class Feedback {
   @Column({ type: 'text', nullable: true })
   modifiedContent: string;
 
-  // Embedding of the feedback text for similarity-based retrieval
+  // Embedding of the feedback text for similarity-based retrieval. Stored as a
+  // text representation of the vector ("[0.1,0.2,...]") matching the convention
+  // used by curriculum_chunks; searchByEmbedding/findRelevant cast it to
+  // ::vector in raw SQL for the <=> operator.
   @Column({ type: 'text', nullable: true })
   embedding: string;
 

@@ -4,6 +4,7 @@ import { CurriculumService } from '../database/curriculum/curriculum.service';
 import { SuggestionService } from '../database/suggestion/suggestion.service';
 import { RagService } from '../rag/rag.service';
 import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
+import { FeedbackService } from '../database/feedback/feedback.service';
 import { Student } from '../database/student/student.entity';
 import { Curriculum } from '../database/curriculum/curriculum.entity';
 
@@ -64,6 +65,7 @@ export class SuggestionGeneratorService {
     private readonly suggestionService: SuggestionService,
     private readonly rag: RagService,
     private readonly gateway: LlmGatewayService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   async generate(options: GenerateSuggestionsOptions): Promise<GenerateSuggestionsResult> {
@@ -85,6 +87,40 @@ export class SuggestionGeneratorService {
       minSimilarity: 0.15,
     });
 
+    // 2b. Chunk 8: retrieve the teacher's most relevant past feedback so the
+    //     model gets smarter per-teacher. Embed the same retrieval query used
+    //     for chunks, then rank by similarity + recency. Wrapped in try/catch
+    //     so a feedback failure never blocks suggestion generation.
+    const teacherId = student.teacher?.id;
+    const pastFeedback: Array<{
+      action: string;
+      reason?: string;
+      teacherComment?: string;
+      modifiedContent?: string;
+      weight: number;
+    }> = [];
+    if (teacherId) {
+      try {
+        const { embedding } = await this.gateway.embed(query);
+        const relevant = await this.feedbackService.findRelevant(teacherId, embedding, {
+          limit: 5,
+        });
+        for (const fb of relevant) {
+          pastFeedback.push({
+            action: fb.action,
+            reason: fb.reason,
+            teacherComment: fb.teacherComment,
+            modifiedContent: fb.modifiedContent,
+            weight: fb.weight,
+          });
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Feedback retrieval failed (continuing without it): ${e instanceof Error ? e.message : e}`,
+        );
+      }
+    }
+
     // 3. Build the prompt
     const systemContext = this.buildStudentContext(student);
     const contextBlocks = sources.length
@@ -95,6 +131,7 @@ export class SuggestionGeneratorService {
           )
           .join('\n\n---\n\n')
       : 'No curriculum chunks were retrieved. Base the options on the curriculum title/subject and the student profile, and label them as general best-practice suggestions.';
+    const feedbackBlock = this.buildFeedbackBlock(pastFeedback);
 
     const prompt = `You are an expert K-12 curriculum planning assistant. Generate exactly ${optionCount} DISTINCT, personalized lesson plan options for this student, grounded in the curriculum context below.
 
@@ -110,8 +147,12 @@ ${options.focus ? `- Teacher focus: ${options.focus}` : ''}
 CURRICULUM CONTEXT (retrieved chunks):
 ${contextBlocks}
 
+TEACHER'S PAST FEEDBACK (learn from these — higher weight = more recent/relevant):
+${feedbackBlock}
+
 REQUIREMENTS:
 - Each option must be tailored to THIS student's level, learning differences, language status, and notes.
+- If the teacher's past feedback shows they rejected or modified a similar approach, AVOID repeating the rejected approach and apply the lesson from the modification/comment. Incorporate what they accepted.
 - Options should be meaningfully different from each other (different approach, activity type, or scaffolding).
 - Use the curriculum context to align objectives and content. Cite sources as [1], [2] where relevant.
 - If the student has an IEP/504 or is an ELL, explicitly incorporate appropriate accommodations.
@@ -212,6 +253,38 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
     if (student.mathAbility) parts.push(`math ability ${student.mathAbility}`);
     if (focus) parts.push(focus);
     return parts.join(', ');
+  }
+
+  /**
+   * Chunk 8: render retrieved past feedback into a prompt block. The teacher's
+   * explicit guidance (rejected/modified/accepted + reasons) is surfaced so the
+   * model can adapt. Empty feedback (first-time teacher) yields a neutral note.
+   */
+  private buildFeedbackBlock(
+    pastFeedback: Array<{
+      action: string;
+      reason?: string;
+      teacherComment?: string;
+      modifiedContent?: string;
+      weight: number;
+    }>,
+  ): string {
+    if (!pastFeedback || pastFeedback.length === 0) {
+      return 'No prior feedback from this teacher yet. Use best-practice personalization.';
+    }
+    return pastFeedback
+      .map((fb, i) => {
+        const lines = [
+          `Feedback ${i + 1} (action: ${fb.action}, relevance weight ${fb.weight.toFixed(2)}):`,
+        ];
+        if (fb.reason) lines.push(`  reason: ${fb.reason}`);
+        if (fb.teacherComment) lines.push(`  comment: ${fb.teacherComment}`);
+        if (fb.modifiedContent) {
+          lines.push(`  modified-to: ${fb.modifiedContent.slice(0, 400)}`);
+        }
+        return lines.join('\n');
+      })
+      .join('\n\n');
   }
 
   private buildStudentContext(student: Student): string {

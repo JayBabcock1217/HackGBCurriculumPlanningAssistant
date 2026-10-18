@@ -14,6 +14,7 @@ const validStudent = {
   learningDifferences: [],
   socialEmotionalNotes: null,
   teacherNotes: null,
+  teacher: { id: 't1' },
 };
 
 const validCurriculum = {
@@ -39,7 +40,8 @@ describe('SuggestionGeneratorService', () => {
   const curriculumService = { findOne: jest.fn() };
   const suggestionService = { create: jest.fn() };
   const rag = { retrieve: jest.fn() };
-  const gateway = { chat: jest.fn() };
+  const gateway = { chat: jest.fn(), embed: jest.fn() };
+  const feedbackService = { findRelevant: jest.fn() };
 
   beforeEach(() => {
     studentService.findOne.mockReset();
@@ -47,6 +49,11 @@ describe('SuggestionGeneratorService', () => {
     suggestionService.create.mockReset();
     rag.retrieve.mockReset();
     gateway.chat.mockReset();
+    gateway.embed.mockReset();
+    feedbackService.findRelevant.mockReset();
+    // Default: embedding works, no prior feedback (first-time teacher).
+    gateway.embed.mockResolvedValue({ embedding: [0.1, 0.2], model: 'emb' });
+    feedbackService.findRelevant.mockResolvedValue([]);
 
     service = new SuggestionGeneratorService(
       studentService as any,
@@ -54,6 +61,7 @@ describe('SuggestionGeneratorService', () => {
       suggestionService as any,
       rag as any,
       gateway as any,
+      feedbackService as any,
     );
   });
 
@@ -150,6 +158,90 @@ describe('SuggestionGeneratorService', () => {
       expect(prompt).toContain('No curriculum chunks were retrieved');
       expect(result.sources).toHaveLength(0);
       expect(result.options).toHaveLength(2);
+    });
+
+    it('injects past teacher feedback into the prompt (Chunk 8)', async () => {
+      studentService.findOne.mockResolvedValue(validStudent);
+      curriculumService.findOne.mockResolvedValue(validCurriculum);
+      rag.retrieve.mockResolvedValue([]);
+      gateway.chat.mockResolvedValue({ content: makeOptionsJson(2), model: 'm' });
+      suggestionService.create.mockResolvedValue({});
+      feedbackService.findRelevant.mockResolvedValue([
+        {
+          id: 'fb1',
+          action: 'rejected',
+          reason: 'Too much text for this student',
+          teacherComment: 'Sofia loses focus with long written instructions',
+          modifiedContent: null,
+          createdAt: new Date(),
+          weight: 0.85,
+        },
+        {
+          id: 'fb2',
+          action: 'accepted',
+          reason: 'Visual approach worked',
+          teacherComment: null,
+          modifiedContent: null,
+          createdAt: new Date(),
+          weight: 0.6,
+        },
+      ]);
+
+      await service.generate({ studentId: 's1', curriculumId: 'c1', optionCount: 2 });
+
+      const prompt = gateway.chat.mock.calls[0][0].find((m: any) => m.role === 'user').content;
+      expect(prompt).toContain('TEACHER\'S PAST FEEDBACK');
+      expect(prompt).toContain('action: rejected');
+      expect(prompt).toContain('Too much text for this student');
+      expect(prompt).toContain('action: accepted');
+      // It should embed the retrieval query and ask the feedback service
+      expect(gateway.embed).toHaveBeenCalled();
+      expect(feedbackService.findRelevant).toHaveBeenCalledWith('t1', [0.1, 0.2], {
+        limit: 5,
+      });
+    });
+
+    it('shows a neutral note when there is no prior feedback (first-time teacher)', async () => {
+      studentService.findOne.mockResolvedValue(validStudent);
+      curriculumService.findOne.mockResolvedValue(validCurriculum);
+      rag.retrieve.mockResolvedValue([]);
+      gateway.chat.mockResolvedValue({ content: makeOptionsJson(2), model: 'm' });
+      suggestionService.create.mockResolvedValue({});
+      feedbackService.findRelevant.mockResolvedValue([]);
+
+      await service.generate({ studentId: 's1', curriculumId: 'c1', optionCount: 2 });
+
+      const prompt = gateway.chat.mock.calls[0][0].find((m: any) => m.role === 'user').content;
+      expect(prompt).toContain('No prior feedback from this teacher yet');
+    });
+
+    it('continues generating when feedback retrieval fails', async () => {
+      studentService.findOne.mockResolvedValue(validStudent);
+      curriculumService.findOne.mockResolvedValue(validCurriculum);
+      rag.retrieve.mockResolvedValue([]);
+      gateway.chat.mockResolvedValue({ content: makeOptionsJson(2), model: 'm' });
+      suggestionService.create.mockResolvedValue({});
+      feedbackService.findRelevant.mockRejectedValue(new Error('db down'));
+
+      const result = await service.generate({ studentId: 's1', curriculumId: 'c1', optionCount: 2 });
+      // Generation still succeeds without feedback
+      expect(result.options).toHaveLength(2);
+      const prompt = gateway.chat.mock.calls[0][0].find((m: any) => m.role === 'user').content;
+      expect(prompt).toContain('No prior feedback from this teacher yet');
+    });
+
+    it('does not attempt feedback when the student has no teacher', async () => {
+      const noTeacher = { ...validStudent, teacher: null };
+      studentService.findOne.mockResolvedValue(noTeacher);
+      curriculumService.findOne.mockResolvedValue(validCurriculum);
+      rag.retrieve.mockResolvedValue([]);
+      gateway.chat.mockResolvedValue({ content: makeOptionsJson(2), model: 'm' });
+      suggestionService.create.mockResolvedValue({});
+
+      await service.generate({ studentId: 's1', curriculumId: 'c1', optionCount: 2 });
+
+      expect(gateway.embed).not.toHaveBeenCalled();
+      expect(feedbackService.findRelevant).not.toHaveBeenCalled();
     });
 
     it('parses JSON wrapped in markdown fences', async () => {

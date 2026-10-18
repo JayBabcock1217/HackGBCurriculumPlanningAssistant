@@ -165,4 +165,79 @@ describe('FeedbackService', () => {
       expect(result[0].similarity).toBeCloseTo(0.92);
     });
   });
+
+  describe('findRelevant (Chunk 8: similarity + recency weighting)', () => {
+    const now = Date.now();
+    const daysAgo = (n: number) => new Date(now - n * 86_400_000);
+
+    it('returns an empty array when there is no feedback', async () => {
+      (feedbackRepo.query as jest.Mock).mockResolvedValueOnce([]);
+      (feedbackRepo.find as jest.Mock).mockResolvedValueOnce([]);
+      const result = await service.findRelevant('teacher-1', [1, 2, 3]);
+      expect(result).toHaveLength(0);
+    });
+
+    it('ranks feedback by a blend of similarity and recency', async () => {
+      // Similarity pass: one very similar but OLD entry, one similar and NEW.
+      (feedbackRepo.query as jest.Mock).mockResolvedValueOnce([
+        {
+          id: 'old', action: 'accepted', reason: null, teacher_comment: 'old',
+          modified_content: null, embedding: null, created_at: daysAgo(90),
+          updated_at: daysAgo(90), suggestion_id: 's1', teacher_id: 't1',
+          similarity: '0.99',
+        },
+        {
+          id: 'new', action: 'rejected', reason: null, teacher_comment: 'new',
+          modified_content: null, embedding: null, created_at: daysAgo(1),
+          updated_at: daysAgo(1), suggestion_id: 's2', teacher_id: 't1',
+          similarity: '0.9',
+        },
+      ]);
+      // Recency pass returns the same two.
+      (feedbackRepo.find as jest.Mock).mockResolvedValueOnce([
+        { id: 'new', action: 'rejected', reason: null, teacherComment: 'new', createdAt: daysAgo(1) },
+        { id: 'old', action: 'accepted', reason: null, teacherComment: 'old', createdAt: daysAgo(90) },
+      ]);
+
+      const result = await service.findRelevant('teacher-1', [1, 2, 3], { limit: 5 });
+      expect(result).toHaveLength(2);
+      // Both have similarity, but the new one has much higher recency.
+      // weight = 0.7*sim + 0.3*recency. The 1-day-old entry's recency (~0.977)
+      // outweighs the 90-day-old entry's tiny recency (~0.125), so even though
+      // the old one has slightly higher similarity, the new one should rank first.
+      expect(result[0].id).toBe('new');
+      expect(result[0].weight).toBeGreaterThan(result[1].weight);
+      // Each entry carries similarity, recency, and weight.
+      for (const r of result) {
+        expect(typeof r.similarity).toBe('number');
+        expect(typeof r.recency).toBe('number');
+        expect(typeof r.weight).toBe('number');
+      }
+    });
+
+    it('includes unembedded feedback via recency only', async () => {
+      // No embedded feedback, but one recent unembedded entry.
+      (feedbackRepo.query as jest.Mock).mockResolvedValueOnce([]);
+      (feedbackRepo.find as jest.Mock).mockResolvedValueOnce([
+        { id: 'plain', action: 'accepted', reason: 'good', teacherComment: null, createdAt: daysAgo(0) },
+      ]);
+
+      const result = await service.findRelevant('teacher-1', [1, 2, 3], { limit: 3 });
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('plain');
+      expect(result[0].similarity).toBe(0);
+      expect(result[0].recency).toBeCloseTo(1, 1);
+    });
+
+    it('respects the limit', async () => {
+      (feedbackRepo.query as jest.Mock).mockResolvedValueOnce([
+        { id: 'a', action: 'accepted', reason: null, teacher_comment: null, modified_content: null, embedding: null, created_at: daysAgo(1), updated_at: daysAgo(1), suggestion_id: 's1', teacher_id: 't1', similarity: '0.9' },
+        { id: 'b', action: 'accepted', reason: null, teacher_comment: null, modified_content: null, embedding: null, created_at: daysAgo(2), updated_at: daysAgo(2), suggestion_id: 's2', teacher_id: 't1', similarity: '0.8' },
+      ]);
+      (feedbackRepo.find as jest.Mock).mockResolvedValueOnce([]);
+
+      const result = await service.findRelevant('teacher-1', [1, 2, 3], { limit: 1 });
+      expect(result).toHaveLength(1);
+    });
+  });
 });

@@ -110,4 +110,86 @@ export class FeedbackService {
       similarity: parseFloat(row.similarity),
     }));
   }
+
+  /**
+   * Chunk 8: retrieve the teacher's most relevant past feedback for a new
+   * generation, ranked by a blend of semantic similarity and recency.
+   *
+   *   weight = 0.7 * similarity + 0.3 * recency
+   *
+   * where recency = exp(-age_days / halfLifeDays). Newer feedback matters more
+   * (a teacher's current preferences should outweigh stale ones). Feedback
+   * without an embedding still participates via recency alone (similarity 0),
+   * so a first-time teacher with only unembedded feedback still gets guidance.
+   *
+   * Returns at most `limit` entries, best-weighted first, each annotated with
+   * its similarity, recency, and combined weight.
+   */
+  async findRelevant(
+    teacherId: string,
+    queryEmbedding: number[],
+    options: { limit?: number; halfLifeDays?: number } = {},
+  ): Promise<
+    Array<
+      Feedback & {
+        similarity: number;
+        recency: number;
+        weight: number;
+      }
+    >
+  > {
+    const limit = Math.min(Math.max(options.limit ?? 5, 1), 10);
+    const halfLifeDays = options.halfLifeDays ?? 30;
+
+    // 1. Similarity pass (only feedback that has an embedding).
+    const similar = await this.searchByEmbedding(
+      queryEmbedding,
+      teacherId,
+      Math.max(limit * 2, 20),
+    );
+
+    // 2. Recency pass (all feedback, newest first).
+    const recent = await this.feedbackRepo.find({
+      where: { teacher: { id: teacherId } },
+      order: { createdAt: 'DESC' },
+      take: Math.max(limit * 2, 20),
+    });
+
+    const now = Date.now();
+    const scored: Array<{
+      fb: Feedback;
+      similarity: number;
+      recency: number;
+      weight: number;
+    }> = [];
+    const seen = new Set<string>();
+
+    for (const row of similar) {
+      const ageDays = (now - new Date(row.createdAt).getTime()) / 86_400_000;
+      const recency = Math.exp(-Math.max(ageDays, 0) / halfLifeDays);
+      scored.push({
+        fb: row,
+        similarity: row.similarity,
+        recency,
+        weight: 0.7 * row.similarity + 0.3 * recency,
+      });
+      seen.add(row.id);
+    }
+
+    // Recency-only entries (no embedding) so unembedded feedback still counts.
+    for (const fb of recent) {
+      if (seen.has(fb.id)) continue;
+      const ageDays = (now - new Date(fb.createdAt).getTime()) / 86_400_000;
+      const recency = Math.exp(-Math.max(ageDays, 0) / halfLifeDays);
+      scored.push({ fb, similarity: 0, recency, weight: 0.3 * recency });
+    }
+
+    scored.sort((a, b) => b.weight - a.weight);
+    return scored.slice(0, limit).map((s) => ({
+      ...s.fb,
+      similarity: s.similarity,
+      recency: s.recency,
+      weight: s.weight,
+    }));
+  }
 }
