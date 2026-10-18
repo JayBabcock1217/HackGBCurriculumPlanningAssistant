@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   LlmAdapter,
@@ -9,8 +9,7 @@ import {
   LlmMessage,
   LlmProviderError,
 } from '../llm-adapter.interface';
-import { LlmGatewayConfig } from '../llm-gateway.config';
-import { LLM_GATEWAY_CONFIG } from '../llm-gateway.tokens';
+import { LlmGatewayState } from '../llm-gateway.state';
 
 /**
  * AnthropicAdapter
@@ -29,20 +28,34 @@ export class AnthropicAdapter implements LlmAdapter {
   readonly provider = 'anthropic';
   readonly capabilities = ['chat', 'cloud'];
 
-  private readonly client: Anthropic | null;
+  private client: Anthropic | null = null;
+  private clientKey = '';
 
-  constructor(
-    @Inject(LLM_GATEWAY_CONFIG) private readonly config: LlmGatewayConfig,
-  ) {
-    this.client = this.config.anthropic.apiKey
-      ? new Anthropic({
-          apiKey: this.config.anthropic.apiKey,
-          baseURL: this.config.anthropic.baseURL,
-        })
-      : null;
+  constructor(private readonly state: LlmGatewayState) {}
+
+  // Read from the mutable state on every access so runtime changes (from the
+  // settings page) take effect without a restart.
+  private get config() {
+    return this.state.current;
   }
 
+  /**
+   * Build (or rebuild) the Anthropic client from the active config. The SDK
+   * captures the key/baseURL at construction time, so we rebuild whenever
+   * those change — clientKey tracks whether a rebuild is needed.
+   */
   private get clientOrThrow(): Anthropic {
+    const cfg = this.config.anthropic;
+    const key = `${cfg.apiKey ?? ''}|${cfg.baseURL ?? ''}`;
+    if (this.client === null || key !== this.clientKey) {
+      this.client = cfg.apiKey
+        ? new Anthropic({
+            apiKey: cfg.apiKey,
+            baseURL: cfg.baseURL,
+          })
+        : null;
+      this.clientKey = key;
+    }
     if (!this.client) {
       throw new LlmProviderError(
         'Anthropic provider selected but ANTHROPIC_API_KEY is not set',

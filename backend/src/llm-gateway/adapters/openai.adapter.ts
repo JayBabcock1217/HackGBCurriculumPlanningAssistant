@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import {
   LlmAdapter,
@@ -9,8 +9,7 @@ import {
   LlmMessage,
   LlmProviderError,
 } from '../llm-adapter.interface';
-import { LlmGatewayConfig } from '../llm-gateway.config';
-import { LLM_GATEWAY_CONFIG } from '../llm-gateway.tokens';
+import { LlmGatewayState } from '../llm-gateway.state';
 
 /**
  * OpenAIAdapter
@@ -25,20 +24,34 @@ export class OpenAiAdapter implements LlmAdapter {
   readonly provider = 'openai';
   readonly capabilities = ['chat', 'embed', 'cloud'];
 
-  private readonly client: OpenAI | null;
+  private client: OpenAI | null = null;
+  private clientKey = '';
 
-  constructor(
-    @Inject(LLM_GATEWAY_CONFIG) private readonly config: LlmGatewayConfig,
-  ) {
-    this.client = this.config.openai.apiKey
-      ? new OpenAI({
-          apiKey: this.config.openai.apiKey,
-          baseURL: this.config.openai.baseURL || undefined,
-        })
-      : null;
+  constructor(private readonly state: LlmGatewayState) {}
+
+  // Read from the mutable state on every access so runtime changes (from the
+  // settings page) take effect without a restart.
+  private get config() {
+    return this.state.current;
   }
 
+  /**
+   * Build (or rebuild) the OpenAI client from the active config. The OpenAI
+   * SDK captures the key/baseURL at construction time, so we rebuild whenever
+   * those change — the clientKey tracks whether a rebuild is needed.
+   */
   private get clientOrThrow(): OpenAI {
+    const cfg = this.config.openai;
+    const key = `${cfg.apiKey ?? ''}|${cfg.baseURL ?? ''}`;
+    if (this.client === null || key !== this.clientKey) {
+      this.client = cfg.apiKey
+        ? new OpenAI({
+            apiKey: cfg.apiKey,
+            baseURL: cfg.baseURL || undefined,
+          })
+        : null;
+      this.clientKey = key;
+    }
     if (!this.client) {
       throw new LlmProviderError(
         'OpenAI provider selected but OPENAI_API_KEY is not set',

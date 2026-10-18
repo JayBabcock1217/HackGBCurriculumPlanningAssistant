@@ -14,6 +14,7 @@ import {
   FileInput,
   LogOut,
   ShieldCheck,
+  Settings,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/lib/auth';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/feedback', label: 'Feedback', icon: MessageSquare },
   { href: '/progress', label: 'Progress', icon: BarChart3 },
   { href: '/resources', label: 'Resources', icon: FileInput },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 // Admin-only route, shown only to the admin role.

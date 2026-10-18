@@ -470,3 +470,49 @@ export const deleteFeedback = (id: string) =>
 // ---------- LLM ----------
 
 export const getProviders = () => request<ProviderInfo[]>('/api/llm/providers');
+
+// ---------- LLM Settings (runtime configuration of the AI server) ----------
+
+export type LlmProviderName = 'ollama' | 'openai' | 'anthropic';
+
+export interface LlmSettings {
+  chatProvider: LlmProviderName;
+  embeddingProvider: LlmProviderName;
+  ollama: { url: string; chatModel: string; embeddingModel: string };
+  openai: {
+    apiKey: string | null;
+    apiKeyMasked: string | null;
+    chatModel: string;
+    embeddingModel: string;
+    baseURL: string;
+  };
+  anthropic: {
+    apiKey: string | null;
+    apiKeyMasked: string | null;
+    chatModel: string;
+    baseURL: string;
+  };
+  defaultChatModel: string;
+  defaultEmbeddingModel: string;
+}
+
+export type LlmSettingsUpdate = Partial<
+  Pick<LlmSettings, 'chatProvider' | 'embeddingProvider' | 'defaultChatModel' | 'defaultEmbeddingModel'>
+> & {
+  ollama?: Partial<LlmSettings['ollama']>;
+  openai?: Partial<Omit<LlmSettings['openai'], 'apiKey' | 'apiKeyMasked'> & { apiKey?: string }>;
+  anthropic?: Partial<Omit<LlmSettings['anthropic'], 'apiKey' | 'apiKeyMasked'> & { apiKey?: string }>;
+};
+
+export interface LlmTestResult {
+  chat: { ok: boolean; provider: string; model: string; message?: string };
+  embed: { ok: boolean; provider: string; model: string; message?: string };
+}
+
+export const getLlmSettings = () => request<LlmSettings>('/api/llm/settings');
+
+export const updateLlmSettings = (body: LlmSettingsUpdate) =>
+  request<LlmSettings>('/api/llm/settings', { method: 'PUT', body: JSON.stringify(body) });
+
+export const testLlmConnection = () =>
+  request<LlmTestResult>('/api/llm/test', { method: 'POST' });

@@ -1,6 +1,7 @@
 import { AnthropicAdapter } from './anthropic.adapter';
 import { loadLlmGatewayConfig, LlmGatewayConfig } from '../llm-gateway.config';
 import { LlmProviderError } from '../llm-adapter.interface';
+import { stateFromConfig } from '../llm-gateway.state.spec-helper';
 
 /**
  * Unit tests for AnthropicAdapter.
@@ -17,10 +18,12 @@ describe('AnthropicAdapter', () => {
   beforeEach(async () => {
     config = loadLlmGatewayConfig({ ANTHROPIC_API_KEY: 'sk-ant-test' });
 
-    adapter = new AnthropicAdapter(config);
-    (adapter as unknown as { client: unknown }).client = {
+    adapter = new AnthropicAdapter(stateFromConfig(config));
+    const a = adapter as unknown as { client: unknown; clientKey: string };
+    a.client = {
       messages: { create: messagesCreate },
     };
+    a.clientKey = 'sk-ant-test|https://api.anthropic.com';
     messagesCreate.mockReset();
   });
 
@@ -96,7 +99,7 @@ describe('AnthropicAdapter', () => {
 
     it('throws when the API key is missing', async () => {
       const noKeyAdapter = new AnthropicAdapter(
-        loadLlmGatewayConfig({ ANTHROPIC_API_KEY: '' } as NodeJS.ProcessEnv),
+        stateFromConfig(loadLlmGatewayConfig({ ANTHROPIC_API_KEY: '' } as NodeJS.ProcessEnv)),
       );
       await expect(noKeyAdapter.chat([{ role: 'user', content: 'x' }])).rejects.toThrow(
         /ANTHROPIC_API_KEY/,

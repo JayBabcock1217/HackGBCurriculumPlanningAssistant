@@ -8,11 +8,15 @@ import {
   LlmMessage,
   LlmProviderError,
 } from './llm-adapter.interface';
-import { loadLlmGatewayConfig } from './llm-gateway.config';
-import { LLM_GATEWAY_CONFIG, LLM_ADAPTERS } from './llm-gateway.tokens';
-import { OllamaAdapter } from './adapters/ollama.adapter';
-import { OpenAiAdapter } from './adapters/openai.adapter';
-import { AnthropicAdapter } from './adapters/anthropic.adapter';
+import { loadLlmGatewayConfig, LlmGatewayConfig } from './llm-gateway.config';
+import { LlmGatewayState } from './llm-gateway.state';
+import { LLM_ADAPTERS } from './llm-gateway.tokens';
+
+function stateWithConfig(config: LlmGatewayConfig): LlmGatewayState {
+  const state = new LlmGatewayState();
+  (state as unknown as { config: LlmGatewayConfig }).config = config;
+  return state;
+}
 
 function makeAdapter(
   provider: string,
@@ -41,7 +45,7 @@ async function buildModule(
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       LlmGatewayService,
-      { provide: LLM_GATEWAY_CONFIG, useValue: config },
+      { provide: LlmGatewayState, useValue: stateWithConfig(config) },
       { provide: LLM_ADAPTERS, useValue: adapters },
     ],
   }).compile();
@@ -194,7 +198,7 @@ describe('LlmGatewayService', () => {
       const module = await Test.createTestingModule({
         providers: [
           LlmGatewayService,
-          { provide: LLM_GATEWAY_CONFIG, useValue: config },
+          { provide: LlmGatewayState, useValue: stateWithConfig(config) },
           { provide: LLM_ADAPTERS, useValue: { openai: chatAdapter, ollama: embedAdapter } },
         ],
       }).compile();
@@ -266,7 +270,7 @@ describe('LlmGatewayService', () => {
       const module = await Test.createTestingModule({
         providers: [
           LlmGatewayService,
-          { provide: LLM_GATEWAY_CONFIG, useValue: config },
+          { provide: LlmGatewayState, useValue: stateWithConfig(config) },
           {
             provide: LLM_ADAPTERS,
             useValue: {

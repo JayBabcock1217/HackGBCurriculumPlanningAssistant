@@ -1,6 +1,7 @@
 import { OpenAiAdapter } from './openai.adapter';
 import { loadLlmGatewayConfig, LlmGatewayConfig } from '../llm-gateway.config';
 import { LlmProviderError } from '../llm-adapter.interface';
+import { stateFromConfig } from '../llm-gateway.state.spec-helper';
 
 /**
  * Unit tests for OpenAiAdapter.
@@ -18,11 +19,14 @@ describe('OpenAiAdapter', () => {
   beforeEach(async () => {
     config = loadLlmGatewayConfig({ OPENAI_API_KEY: 'sk-test' });
 
-    adapter = new OpenAiAdapter(config);
-    (adapter as unknown as { client: unknown }).client = {
+    adapter = new OpenAiAdapter(stateFromConfig(config));
+    // Force the lazy client to be our mock so no real OpenAI SDK is built.
+    const a = adapter as unknown as { client: unknown; clientKey: string };
+    a.client = {
       chat: { completions: { create: chatCreate } },
       embeddings: { create: embeddingsCreate },
     };
+    a.clientKey = 'sk-test|';
     chatCreate.mockReset();
     embeddingsCreate.mockReset();
   });
@@ -77,7 +81,7 @@ describe('OpenAiAdapter', () => {
 
     it('throws when the API key is missing', async () => {
       const noKeyAdapter = new OpenAiAdapter(
-        loadLlmGatewayConfig({ OPENAI_API_KEY: '' } as NodeJS.ProcessEnv),
+        stateFromConfig(loadLlmGatewayConfig({ OPENAI_API_KEY: '' } as NodeJS.ProcessEnv)),
       );
       await expect(noKeyAdapter.chat([{ role: 'user', content: 'x' }])).rejects.toThrow(
         /OPENAI_API_KEY/,
@@ -147,7 +151,7 @@ describe('OpenAiAdapter', () => {
 
     it('throws when the API key is missing', async () => {
       const noKeyAdapter = new OpenAiAdapter(
-        loadLlmGatewayConfig({ OPENAI_API_KEY: '' } as NodeJS.ProcessEnv),
+        stateFromConfig(loadLlmGatewayConfig({ OPENAI_API_KEY: '' } as NodeJS.ProcessEnv)),
       );
       await expect(noKeyAdapter.embed('x')).rejects.toThrow(/OPENAI_API_KEY/);
     });

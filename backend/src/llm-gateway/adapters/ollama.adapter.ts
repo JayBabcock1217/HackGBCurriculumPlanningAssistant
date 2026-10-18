@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   LlmAdapter,
   LlmChatOptions,
@@ -8,8 +8,7 @@ import {
   LlmMessage,
   LlmProviderError,
 } from '../llm-adapter.interface';
-import { LlmGatewayConfig } from '../llm-gateway.config';
-import { LLM_GATEWAY_CONFIG } from '../llm-gateway.tokens';
+import { LlmGatewayState } from '../llm-gateway.state';
 
 /**
  * OllamaAdapter
@@ -27,9 +26,13 @@ export class OllamaAdapter implements LlmAdapter {
   readonly provider = 'ollama';
   readonly capabilities = ['chat', 'embed', 'local'];
 
-  constructor(
-    @Inject(LLM_GATEWAY_CONFIG) private readonly config: LlmGatewayConfig,
-  ) {}
+  constructor(private readonly state: LlmGatewayState) {}
+
+  // Read from the mutable state on every access so runtime changes (from the
+  // settings page) take effect without a restart.
+  private get config() {
+    return this.state.current;
+  }
 
   private get baseUrl(): string {
     return this.config.ollama.url.replace(/\/+$/, '');

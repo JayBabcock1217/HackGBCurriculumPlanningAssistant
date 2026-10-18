@@ -1,5 +1,6 @@
 import { OllamaAdapter } from './ollama.adapter';
 import { loadLlmGatewayConfig, LlmGatewayConfig } from '../llm-gateway.config';
+import { stateFromConfig } from '../llm-gateway.state.spec-helper';
 
 /**
  * Unit tests for OllamaAdapter. fetch is mocked so no real Ollama server
@@ -15,7 +16,7 @@ describe('OllamaAdapter', () => {
     global.fetch = fetchMock as unknown as typeof fetch;
     fetchMock.mockReset();
 
-    adapter = new OllamaAdapter(config);
+    adapter = new OllamaAdapter(stateFromConfig(config));
   });
 
   function jsonResponse(body: unknown): Response {
@@ -83,7 +84,7 @@ describe('OllamaAdapter', () => {
 
     it('strips a trailing slash from the Ollama URL', async () => {
       const slashConfig = loadLlmGatewayConfig({ OLLAMA_URL: 'http://host:11434/' });
-      const slashAdapter = new OllamaAdapter(slashConfig);
+      const slashAdapter = new OllamaAdapter(stateFromConfig(slashConfig));
       fetchMock.mockResolvedValue(jsonResponse({ message: { content: 'ok' } }));
 
       await slashAdapter.chat([{ role: 'user', content: 'hi' }]);

@@ -4,17 +4,17 @@ import { LlmGatewayService } from './llm-gateway.service';
 import { OllamaAdapter } from './adapters/ollama.adapter';
 import { OpenAiAdapter } from './adapters/openai.adapter';
 import { AnthropicAdapter } from './adapters/anthropic.adapter';
-import { loadLlmGatewayConfig } from './llm-gateway.config';
-import { LLM_GATEWAY_CONFIG, LLM_ADAPTERS } from './llm-gateway.tokens';
+import { LlmGatewayState } from './llm-gateway.state';
+import { LLM_ADAPTERS } from './llm-gateway.tokens';
 
 @Module({
   controllers: [LlmController],
   providers: [
+    LlmGatewayState,
     LlmGatewayService,
     OllamaAdapter,
     OpenAiAdapter,
     AnthropicAdapter,
-    { provide: LLM_GATEWAY_CONFIG, useFactory: () => loadLlmGatewayConfig() },
     {
       provide: LLM_ADAPTERS,
       useFactory: (
