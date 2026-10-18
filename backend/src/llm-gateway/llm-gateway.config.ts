@@ -44,6 +44,11 @@ const PROVIDERS: LlmProviderName[] = ['ollama', 'openai', 'anthropic'];
  * When running the backend natively (no container) just put your real local
  * address in the URL (e.g. http://127.0.0.1:11434), or set HOST_DOCKER_INTERNAL
  * to override the resolved host in a container.
+ *
+ * For an AI server on a DIFFERENT machine reached over Tailscale, use its
+ * Tailscale IP (100.x.y.z) or MagicDNS name directly, e.g.
+ * OLLAMA_URL=http://100.64.0.5:11434 — and set TAILOSCALE_INTERFACE=1 in
+ * docker-compose so the container can reach Tailscale peers (see .env.example).
  */
 export const LOCAL_HOST_TOKEN = 'local-host';
 

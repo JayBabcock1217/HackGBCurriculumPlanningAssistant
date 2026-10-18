@@ -98,10 +98,27 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
       ANTHROPIC_CHAT_MODEL: ${ANTHROPIC_CHAT_MODEL:-claude-sonnet-4-20250514}
+      # Tailscale: if your AI server lives on ANOTHER machine reached over
+      # Tailscale (not on this host), set TAILOSCALE_INTERFACE=1 so the backend
+      # joins the Tailscale network namespace and can reach peers by their
+      # Tailscale IP (100.x.y.z) or MagicDNS name. Leave unset for the normal
+      # case (bundled Ollama / host-local server / cloud).
+      TAILOSCALE_INTERFACE: ${TAILOSCALE_INTERFACE:-0}
     # host.docker.internal -> the Docker host (172.17.0.1). Needed on Linux;
     # on macOS/Windows Docker Desktop it resolves to the host automatically.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Only attached when TAILOSCALE_INTERFACE=1. Gives the backend its own
+    # network namespace wired to the host's Tailscale interface (tail0), so the
+    # container can reach Tailscale peers. The backend's own container network
+    # (for postgres/rustfs) is unchanged. Requires tailscaled running on the host.
+    additionalNetworks:
+      tailnet:
+        enabled: ${TAILOSCALE_INTERFACE:-0}
+        driver: macvlan
+        driver_opts:
+          parent: ${TAILOSCALE_PARENT_IFACE:-tail0}
+          mode: bridge
     ports:
       # Host port is allocated dynamically by scripts/start.sh (first free in
       # 3100-3199) and passed in as BACKEND_PORT. The container always listens
