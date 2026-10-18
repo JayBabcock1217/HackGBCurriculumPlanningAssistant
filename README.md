@@ -114,6 +114,7 @@ Configuration.)
 | `npm run status` | Show what is running + health of each service.          |
 | `npm run logs`   | Tail backend + frontend logs.                           |
 | `npm run docker:up` | Start without rebuilding (use existing images).     |
+| `npm run seed-admin` | Create the initial admin account in Postgres.      |
 
 ## Configuration
 
@@ -150,6 +151,23 @@ environment:
 
 The embedding model still uses Ollama (`nomic-embed-text`) by default; cloud
 embedding can be enabled the same way if your provider supports it.
+
+## Creating the initial admin account
+
+The very first account must be an admin (a teacher cannot promote themselves).
+Use the built-in one-time seed script — it writes the account straight into
+Postgres with a bcrypt hash, idempotently (running it again is a no-op):
+
+```bash
+# With the default credentials (admin@school.edu / hackgb123)
+npm run seed-admin
+
+# Or with your own credentials
+SEED_ADMIN_EMAIL=you@school.edu SEED_ADMIN_PASSWORD=secret npm run seed-admin
+```
+
+This requires the stack to be running (`npm run start`). The default admin is
+**admin@school.edu / hackgb123** — change the password after first login.
 
 ## Promoting an admin
 
