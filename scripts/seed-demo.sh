@@ -19,6 +19,20 @@ source "${SCRIPT_DIR}/lib/docker-env.sh"
 
 resolve_docker || exit 1
 
+# The seed script runs INSIDE the backend container, so it must be baked into
+# the image at build time. If the running container was built from an older
+# image (before the seed script existed), the file won't be inside it and
+# Node fails with "Cannot find module". Detect that case and say so.
+if ! ${DOCKER} exec hackgb-backend test -f /app/scripts/lib/seed-demo.mjs; then
+  err "seed-demo.mjs is not inside the running backend container."
+  err "The backend image is older than the seed script. Rebuild it:"
+  echo
+  echo "    git pull"
+  echo "    npm run start        # (NOT docker:up — it must rebuild the image)"
+  echo
+  exit 1
+fi
+
 note "Seeding demo class (wipes existing students/suggestions/curricula/feedback) ..."
 # shellcheck disable=SC2086
 if ! ${DOCKER} exec \
