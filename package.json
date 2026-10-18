@@ -4,18 +4,18 @@
   "private": true,
   "description": "Web-based app to assist teachers in developing personalized curricula",
   "scripts": {
-    "start": "bash scripts/start.sh",
-    "stop": "bash scripts/stop.sh",
-    "status": "bash scripts/status.sh",
-    "logs": "bash scripts/logs.sh",
+    "start": "node scripts/lib/run-script.cjs scripts/start.sh",
+    "stop": "node scripts/lib/run-script.cjs scripts/stop.sh",
+    "status": "node scripts/lib/run-script.cjs scripts/status.sh",
+    "logs": "node scripts/lib/run-script.cjs scripts/logs.sh",
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev:backend": "npm run start:dev --workspace=backend",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "docker:up": "bash scripts/start.sh --no-build",
-    "docker:down": "bash scripts/stop.sh",
-    "seed-admin": "bash scripts/seed-admin.sh",
-    "seed-demo": "bash scripts/seed-demo.sh"
+    "docker:up": "node scripts/lib/run-script.cjs scripts/start.sh --no-build",
+    "docker:down": "node scripts/lib/run-script.cjs scripts/stop.sh",
+    "seed-admin": "node scripts/lib/run-script.cjs scripts/seed-admin.sh",
+    "seed-demo": "node scripts/lib/run-script.cjs scripts/seed-demo.sh"
   },
   "workspaces": [
     "frontend",
