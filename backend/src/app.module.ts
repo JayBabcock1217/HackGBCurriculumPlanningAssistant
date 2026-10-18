@@ -3,8 +3,17 @@ import { HealthModule } from './health/health.module';
 import { DatabaseModule } from './database/database.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
 import { LlmGatewayModule } from './llm-gateway/llm-gateway.module';
+import { RagModule } from './rag/rag.module';
+import { SuggestionGeneratorModule } from './suggestions/suggestion-generator.module';
 
 @Module({
-  imports: [HealthModule, DatabaseModule, FileStorageModule, LlmGatewayModule],
+  imports: [
+    HealthModule,
+    DatabaseModule,
+    FileStorageModule,
+    LlmGatewayModule,
+    RagModule,
+    SuggestionGeneratorModule,
+  ],
 })
 export class AppModule {}

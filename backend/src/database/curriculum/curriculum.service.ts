@@ -109,6 +109,23 @@ export class CurriculumService {
     });
   }
 
+  // Update a single chunk's embedding (used by RAG re-embedding migration)
+  async updateChunkEmbedding(
+    chunkId: string,
+    embedding: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<CurriculumChunk> {
+    const chunk = await this.chunkRepo.findOne({ where: { id: chunkId } });
+    if (!chunk) {
+      throw new NotFoundException(`Chunk ${chunkId} not found`);
+    }
+    chunk.embedding = embedding;
+    if (metadata) {
+      chunk.metadata = { ...chunk.metadata, ...metadata };
+    }
+    return this.chunkRepo.save(chunk);
+  }
+
   // Vector similarity search using pgvector
   async searchByEmbedding(
     embedding: number[],
