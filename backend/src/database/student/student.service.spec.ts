@@ -10,6 +10,7 @@ describe('StudentService', () => {
   let service: StudentService;
   let studentRepo: Repository<Student>;
   let progressRepo: Repository<ProgressEntry>;
+  let qb: { where: jest.Mock; andWhere: jest.Mock };
 
   const mockStudent = {
     id: 'student-1',
@@ -29,17 +30,21 @@ describe('StudentService', () => {
   };
 
   beforeEach(async () => {
+    qb = {
+      where: jest.fn(),
+      andWhere: jest.fn(),
+      getMany: jest.fn(() => [mockStudent]),
+    } as any;
+    qb.where.mockReturnValue(qb);
+    qb.andWhere.mockReturnValue(qb);
+
     const mockStudentRepo = {
       create: jest.fn((dto) => dto),
       save: jest.fn((entity) => ({ ...entity, id: 'student-1' })),
       find: jest.fn(() => [mockStudent]),
       findOne: jest.fn(() => mockStudent),
       remove: jest.fn(),
-      createQueryBuilder: jest.fn(() => ({
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getMany: jest.fn(() => [mockStudent]),
-      })),
+      createQueryBuilder: jest.fn(() => qb),
     };
 
     const mockProgressRepo = {
@@ -144,6 +149,58 @@ describe('StudentService', () => {
       });
       expect(progressRepo.save).toHaveBeenCalled();
       expect(result.skillName).toBe('phonics');
+    });
+  });
+
+  describe('findByReadingLevel', () => {
+    it('should scope by teacher and add a minLevel lower bound', async () => {
+      await service.findByReadingLevel('teacher-1', 3);
+      expect(qb.where).toHaveBeenCalledWith('student.teacher.id = :teacherId', {
+        teacherId: 'teacher-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'student.readingLevel >= :minLevel',
+        { minLevel: 3 },
+      );
+      expect(qb.andWhere).toHaveBeenCalledTimes(1);
+    });
+
+    it('should build a range when both minLevel and maxLevel are given', async () => {
+      await service.findByReadingLevel('teacher-1', 2.5, 3.5);
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'student.readingLevel >= :minLevel',
+        { minLevel: 2.5 },
+      );
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'student.readingLevel <= :maxLevel',
+        { maxLevel: 3.5 },
+      );
+      expect(qb.andWhere).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('findBySkill', () => {
+    it('should build a JSONB containment query scoped to the teacher', async () => {
+      await service.findBySkill('teacher-1', 'addition');
+      expect(qb.where).toHaveBeenCalledWith('student.teacher.id = :teacherId', {
+        teacherId: 'teacher-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('student.skills @> :skill', {
+        skill: JSON.stringify(['addition']),
+      });
+    });
+  });
+
+  describe('findByLearningDifference', () => {
+    it('should build a JSONB containment query scoped to the teacher', async () => {
+      await service.findByLearningDifference('teacher-1', 'dyslexia');
+      expect(qb.where).toHaveBeenCalledWith('student.teacher.id = :teacherId', {
+        teacherId: 'teacher-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        `student.learningDifferences @> :diff`,
+        { diff: JSON.stringify([{ type: 'dyslexia' }]) },
+      );
     });
   });
 

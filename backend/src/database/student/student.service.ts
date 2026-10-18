@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { Student } from './student.entity';
 import { ProgressEntry } from './progress-entry.entity';
 
@@ -119,18 +119,40 @@ export class StudentService {
     });
   }
 
-  // Search and filter
+  // Search and filter (Chunk 6: query by reading level, by skill, by
+  // learning difference — always scoped to a teacher)
   async findByReadingLevel(
     teacherId: string,
-    minLevel: number,
+    minLevel?: number,
     maxLevel?: number,
   ): Promise<Student[]> {
-    const where: any = { teacher: { id: teacherId } };
-    where.readingLevel = minLevel;
-    if (maxLevel) {
-      where.readingLevel = LessThanOrEqual(maxLevel);
+    // Build a query-builder so min/max bounds can be combined (a FindOptions
+    // `where` cannot express a range on one column with two operators).
+    const qb = this.studentRepo
+      .createQueryBuilder('student')
+      .where('student.teacher.id = :teacherId', { teacherId });
+    if (minLevel != null) {
+      qb.andWhere('student.readingLevel >= :minLevel', { minLevel });
     }
-    return this.studentRepo.find({ where });
+    if (maxLevel != null) {
+      qb.andWhere('student.readingLevel <= :maxLevel', { maxLevel });
+    }
+    return qb.getMany();
+  }
+
+  /**
+   * Students whose `skills` array contains the given skill. Uses a JSONB
+   * containment match on the normalized array, which is exact and avoids
+   * partial string matches ("ad" would not match "addition").
+   */
+  async findBySkill(teacherId: string, skill: string): Promise<Student[]> {
+    return this.studentRepo
+      .createQueryBuilder('student')
+      .where('student.teacher.id = :teacherId', { teacherId })
+      .andWhere('student.skills @> :skill', {
+        skill: JSON.stringify([skill]),
+      })
+      .getMany();
   }
 
   async findByLearningDifference(
