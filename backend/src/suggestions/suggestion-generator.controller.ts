@@ -27,6 +27,7 @@ export class SuggestionGeneratorController {
       optionCount: body.optionCount,
       focus: body.focus,
       maxTokens: body.maxTokens,
+      language: body.language,
     });
   }
 }

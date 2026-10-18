@@ -23,6 +23,7 @@ import {
   RefreshCw,
   CloudOff,
 } from 'lucide-react';
+import { AppShell } from '@/components/app-shell';
 import {
   getStudents,
   getCurricula,
@@ -141,6 +142,7 @@ export default function DashboardPage() {
   ];
 
   return (
+    <AppShell>
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -340,5 +342,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
     </div>
+    </AppShell>
   );
 }

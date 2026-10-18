@@ -16,6 +16,12 @@ export interface GenerateSuggestionsOptions {
   /** Optional focus/ask from the teacher, e.g. "focus on regrouping". */
   focus?: string;
   maxTokens?: number;
+  /**
+   * Chunk 10: language the generated CONTENT should be written in (e.g.
+   * "Spanish"). The UI language is a separate, independent setting — only the
+   * lesson/plan content itself is translated when this is set.
+   */
+  language?: string;
 }
 
 export interface LessonOption {
@@ -143,6 +149,7 @@ CURRICULUM:
 - Subject: ${curriculum.subject || 'Unknown'}
 - Grade level: ${curriculum.gradeLevel || 'Unknown'}
 ${options.focus ? `- Teacher focus: ${options.focus}` : ''}
+${options.language ? `\nOUTPUT LANGUAGE: Write ALL option content (title, summary, and the full lesson content) in ${options.language}. Keep the JSON structure and keys in English, but translate the human-readable values into ${options.language}.` : ''}
 
 CURRICULUM CONTEXT (retrieved chunks):
 ${contextBlocks}
@@ -218,6 +225,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
             similarity: s.similarity,
           })),
           focus: options.focus,
+          language: options.language,
         },
         modelUsed: parsed.model,
         studentId: student.id,

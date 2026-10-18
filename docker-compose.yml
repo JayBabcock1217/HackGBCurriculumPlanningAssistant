@@ -77,6 +77,13 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
+    healthcheck:
+      # /api/health is @Public (no auth) so this probe works without a token.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     # Runs the built production image (CMD node backend/dist/main.js).
     # Rebuild the image after backend changes: `sudo -n docker compose build backend`
 
@@ -97,6 +104,14 @@ services:
       - "${FRONTEND_PORT:-3200}:3000"
     depends_on:
       - backend
+    healthcheck:
+      # The Next.js standalone server binds the container's eth0 IP (not
+      # loopback), so probe the container hostname ($HOSTNAME resolves to it).
+      test: ["CMD-SHELL", "wget -qO- http://$$HOSTNAME:3000/login || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     # Runs the built standalone production image (CMD node frontend/server.js).
     # Rebuild the image after frontend changes: `sudo -n docker compose build frontend`
 

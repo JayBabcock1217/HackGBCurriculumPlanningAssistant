@@ -23,6 +23,7 @@ import {
   Search,
   Sparkles,
 } from 'lucide-react';
+import { AppShell } from '@/components/app-shell';
 import {
   getCurricula,
   uploadCurriculum,
@@ -152,6 +153,7 @@ export default function CurriculaPage() {
   }
 
   return (
+    <AppShell>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Curricula</h1>
@@ -340,5 +342,6 @@ export default function CurriculaPage() {
         </CardContent>
       </Card>
     </div>
+    </AppShell>
   );
 }

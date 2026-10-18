@@ -1,23 +1,52 @@
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3100';
 
+// ---------- Auth token (Chunk 11) ----------
+// Stored in localStorage so it survives refreshes; every request() call
+// attaches it as a Bearer header. Cleared on logout.
+const TOKEN_KEY = 'hackgb-token';
+
+export function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
 /**
  * Thin fetch wrapper over the HackGB backend. Every method throws an Error
  * with a human-readable message on non-2xx responses so the UI can surface
- * a single, friendly error banner.
+ * a single, friendly error banner. A 401 from an authenticated call clears
+ * the stored token and redirects to /login.
  */
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
     headers: {
       // multipart requests set their own Content-Type
       ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
     ...options,
   });
+
+  if (res.status === 401 && path !== '/api/auth/login' && path !== '/api/auth/register' && typeof window !== 'undefined') {
+    // Session expired or never logged in: send the user to the login page.
+    clearToken();
+    if (!window.location.pathname.startsWith('/login')) {
+      window.location.href = '/login';
+    }
+  }
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -167,6 +196,91 @@ export async function getBackendStatus() {
   return request<Record<string, unknown>>('/api/health');
 }
 
+// ---------- Auth (Chunk 11) ----------
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: 'teacher' | 'admin';
+  firstName?: string;
+  lastName?: string;
+  teacherId?: string;
+}
+
+export interface AuthResponse extends AuthUser {
+  accessToken: string;
+}
+
+export const registerUser = (dto: {
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}) => request<AuthResponse>('/api/auth/register', { method: 'POST', body: JSON.stringify(dto) });
+
+export const loginUser = (dto: { email: string; password: string }) =>
+  request<AuthResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify(dto) });
+
+export const getMe = () => request<AuthUser>('/api/auth/me');
+
+export const logoutUser = () =>
+  request<void>('/api/auth/logout', { method: 'POST' }).catch(() => {
+    // Even if the API call fails, clear the token locally.
+    clearToken();
+  });
+
+export const getAuthUsers = () => request<AuthUser[]>('/api/auth/users');
+
+export const setUserRole = (id: string, role: 'teacher' | 'admin') =>
+  request<AuthUser>(`/api/auth/users/${id}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+
+// ---------- Progress Dashboards (Chunk 9) ----------
+
+export interface EntryRow {
+  id: string;
+  skillArea: string;
+  skillName: string;
+  score: number;
+  maxScore: number;
+  percent: number;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface StudentTimeline {
+  student: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    gradeLevel?: string | null;
+  };
+  entries: EntryRow[];
+  skillAverages: Array<{ skill: string; skillArea: string; percent: number; entries: number }>;
+}
+
+export interface ClassTimeline {
+  teacherId: string;
+  students: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    entryCount: number;
+    latestPercent: number | null;
+    latest: EntryRow | null;
+  }>;
+  skillAverages: Array<{ skill: string; percent: number; entries: number }>;
+  overTime: Array<{ date: string; percent: number; entries: number }>;
+}
+
+export const getStudentTimeline = (studentId: string) =>
+  request<StudentTimeline>(`/api/progress/students/${studentId}`);
+
+export const getClassTimeline = (teacherId: string) =>
+  request<ClassTimeline>(`/api/progress/class?teacherId=${teacherId}`);
+
 // ---------- Teachers ----------
 
 export const createTeacher = (dto: Partial<Teacher>) =>
@@ -270,7 +384,13 @@ export const getSuggestions = (
 };
 
 export const generateSuggestions = (
-  body: { studentId: string; curriculumId: string; optionCount?: number; focus?: string },
+  body: {
+    studentId: string;
+    curriculumId: string;
+    optionCount?: number;
+    focus?: string;
+    language?: string;
+  },
 ) =>
   request<GenerateResult>('/api/suggestions/generate', {
     method: 'POST',

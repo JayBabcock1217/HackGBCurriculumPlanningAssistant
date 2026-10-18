@@ -27,6 +27,7 @@ import {
   BookOpen,
   Users,
 } from 'lucide-react';
+import { AppShell } from '@/components/app-shell';
 import {
   getSuggestions,
   generateSuggestions,
@@ -215,6 +216,7 @@ export default function SuggestionsPage() {
   const [genCurriculum, setGenCurriculum] = useState('');
   const [genFocus, setGenFocus] = useState('');
   const [genCount, setGenCount] = useState(3);
+  const [genLanguage, setGenLanguage] = useState('');
   const [generating, setGenerating] = useState(false);
 
   // Feedback dialog state
@@ -261,8 +263,10 @@ export default function SuggestionsPage() {
         curriculumId: genCurriculum,
         optionCount: genCount,
         focus: genFocus || undefined,
+        language: genLanguage || undefined,
       });
       setGenFocus('');
+      setGenLanguage('');
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed');
@@ -324,6 +328,7 @@ export default function SuggestionsPage() {
   const pendingCount = suggestions.filter((s) => s.status === 'pending').length;
 
   return (
+    <AppShell>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -428,6 +433,23 @@ export default function SuggestionsPage() {
                       {n}
                     </option>
                   ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Content language
+                </label>
+                <select
+                  value={genLanguage}
+                  onChange={(e) => setGenLanguage(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                >
+                  <option value="">Match curriculum</option>
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Mandarin">Mandarin</option>
                 </select>
               </div>
               <div className="sm:col-span-2 lg:col-span-4">
@@ -601,5 +623,6 @@ export default function SuggestionsPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }

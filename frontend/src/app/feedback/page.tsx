@@ -20,6 +20,7 @@ import {
   CloudOff,
   MessageSquare,
 } from 'lucide-react';
+import { AppShell } from '@/components/app-shell';
 import {
   getFeedback,
   deleteFeedback,
@@ -95,6 +96,7 @@ export default function FeedbackPage() {
   };
 
   return (
+    <AppShell>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -246,5 +248,6 @@ export default function FeedbackPage() {
         )}
       </div>
     </div>
+    </AppShell>
   );
 }

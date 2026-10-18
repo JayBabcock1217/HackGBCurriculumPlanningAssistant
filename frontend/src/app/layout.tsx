@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { Sidebar } from '@/components/sidebar';
 import { ThemeProvider } from '@/lib/theme';
+import { I18nProvider } from '@/lib/i18n';
+import { AuthProvider } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'HackGB Curriculum Assistant',
@@ -38,12 +39,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background antialiased">
         <ThemeProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="ml-64 flex-1 overflow-auto p-6 lg:p-8">
-              {children}
-            </main>
-          </div>
+          <I18nProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
