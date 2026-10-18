@@ -1,7 +1,6 @@
 # HackGBCurriculumPlanningAssistant
 An application designed to assist teachers in recording student progress in comparison to their curriculum, and create individualized lesson plans to meet each student's needs.
 
-# Project Requirements File
 Project Requirements - Personalized Curriculum Assistant
 =========================================================
 
@@ -156,7 +155,6 @@ Optional Features (if time allows)
 - Privacy-first architecture (FERPA/COPPA compliance, data
   minimization, role-based access, audit logs)
 
-#Production Plan File
 Production Plan - Personalized Curriculum Assistant
 ====================================================
 
