@@ -3,9 +3,10 @@ services:
     image: pgvector/pgvector:pg16
     container_name: hackgb-postgres
     environment:
-      POSTGRES_DB: hackgb
-      POSTGRES_USER: hackgb
-      POSTGRES_PASSWORD: hackgb_dev_password
+      POSTGRES_DB: ${POSTGRES_DB:-hackgb}
+      POSTGRES_USER: ${POSTGRES_USER:-hackgb}
+      # Dev fallback; override with POSTGRES_PASSWORD in your .env (see .env.example).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hackgb_dev_password}
     ports:
       - "5432:5432"
     volumes:
@@ -27,8 +28,8 @@ services:
       RUSTFS_ADDRESS: ":9000"
       RUSTFS_CONSOLE_ADDRESS: ":9001"
       RUSTFS_CONSOLE_ENABLE: "true"
-      RUSTFS_ACCESS_KEY: hackgb
-      RUSTFS_SECRET_KEY: hackgb_dev_password
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-hackgb}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-hackgb_dev_password}
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -59,14 +60,20 @@ services:
       dockerfile: backend/Dockerfile
     container_name: hackgb-backend
     environment:
-      DATABASE_URL: postgresql://hackgb:hackgb_dev_password@postgres:5432/hackgb
+      # Compose-network form: user:password@postgres:5432/db. Override the
+      # pieces via .env (POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB) or set
+      # DATABASE_URL directly.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-hackgb}:${POSTGRES_PASSWORD:-hackgb_dev_password}@postgres:5432/${POSTGRES_DB:-hackgb}}
       # Points at the RustFS container (S3-compatible MinIO replacement)
       MINIO_ENDPOINT: rustfs
       MINIO_PORT: "9000"
-      MINIO_ACCESS_KEY: hackgb
-      MINIO_SECRET_KEY: hackgb_dev_password
-      OLLAMA_URL: http://ollama:11434
+      MINIO_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-hackgb}
+      MINIO_SECRET_KEY: ${RUSTFS_SECRET_KEY:-hackgb_dev_password}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       PORT: "3001"
+      # Chunk 11: JWT signing secret. Dev fallback; set AUTH_JWT_SECRET in .env
+      # for anything non-local.
+      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-hackgb-dev-jwt-secret-change-in-prod}
     ports:
       # Host port is allocated dynamically by scripts/start.sh (first free in
       # 3100-3199) and passed in as BACKEND_PORT. The container always listens

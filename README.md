@@ -115,21 +115,34 @@ Configuration.)
 | `npm run logs`   | Tail backend + frontend logs.                           |
 | `npm run docker:up` | Start without rebuilding (use existing images).     |
 | `npm run seed-admin` | Create the initial admin account in Postgres.      |
+| `npm run seed-demo` | Wipe app data + seed a clean demo class (teacher, 8 students, curricula, progress, suggestions). |
 
 ## Configuration
 
-All configuration is via environment variables, set in `docker-compose.yml`
-(or an `.env` file next to it). The main ones:
+All configuration is via environment variables. Every variable has a safe
+development default in `docker-compose.yml`, so the stack works out of the
+box. To override any of them, copy `.env.example` to `.env` (same directory)
+and edit the values:
+
+```bash
+cp .env.example .env   # then edit
+```
+
+The main ones:
 
 | Variable               | Default                                  | Meaning                                   |
 |------------------------|------------------------------------------|-------------------------------------------|
-| `DATABASE_URL`         | `postgresql://hackgb:...@postgres:5432/hackgb` | Database connection (inside the compose network). |
+| `DATABASE_URL`         | `postgresql://hackgb:...@postgres:5432/hackgb` | Database connection (inside the compose network). Built from `POSTGRES_*` if unset. |
+| `POSTGRES_PASSWORD`    | `hackgb_dev_password`                    | **Change for non-local use.**             |
 | `MINIO_ENDPOINT` / `MINIO_PORT` | `rustfs` / `9000`               | Object storage (RustFS).                  |
-| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | `hackgb` / `hackgb_dev_password` | Object storage credentials.            |
+| `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` | `hackgb` / `hackgb_dev_password` | Object storage credentials. **Change the secret for non-local use.** |
 | `OLLAMA_URL`           | `http://ollama:11434`                     | Ollama endpoint.                          |
 | `LLM_PROVIDER`         | `ollama`                                  | `ollama`, `openai`, or `anthropic`.       |
 | `AUTH_JWT_SECRET`      | dev secret                                | **Set this in production** — signs login tokens. |
 | `NEXT_PUBLIC_API_URL`  | `http://localhost:3100`                   | Baked into the frontend at build time (the backend port). |
+
+> For anything beyond a local dev box, set strong, unique values for
+> `POSTGRES_PASSWORD`, `RUSTFS_SECRET_KEY`, and `AUTH_JWT_SECRET`.
 
 ### Using OpenAI or Anthropic instead of Ollama
 
@@ -159,7 +172,7 @@ Use the built-in one-time seed script — it writes the account straight into
 Postgres with a bcrypt hash, idempotently (running it again is a no-op):
 
 ```bash
-# With the default credentials (admin@school.edu / hackgb123)
+# With the default credentials (admin@school.edu / HackGB-Admin-2026)
 npm run seed-admin
 
 # Or with your own credentials
@@ -167,7 +180,35 @@ SEED_ADMIN_EMAIL=you@school.edu SEED_ADMIN_PASSWORD=secret npm run seed-admin
 ```
 
 This requires the stack to be running (`npm run start`). The default admin is
-**admin@school.edu / hackgb123** — change the password after first login.
+**admin@school.edu / HackGB-Admin-2026** — change the password after first
+login for anything non-local.
+
+## Loading a demo class (optional)
+
+If you'd rather not start from an empty app, seed a clean, realistic
+3rd-grade class with one command. This **wipes existing app data**
+(students, curricula, suggestions, feedback, progress) and replaces it with:
+
+- A demo teacher (`sarah.cole@school.edu` / `demo1234`) who owns the class.
+- 8 students with varied, realistic profiles (including an IEP/dyslexia case,
+  a 504/ADHD case, and an ELL student).
+- 2 indexed curricula (math + reading) with realistic lesson chunks.
+- 48 progress entries (so the dashboards have data) and 5 suggestions with
+  3 feedback entries (so the Suggestions/Feedback pages have content).
+
+```bash
+npm run seed-demo
+```
+
+Log in as the demo teacher to see the class:
+
+| Account   | Email                  | Password            |
+|-----------|------------------------|---------------------|
+| Teacher   | `sarah.cole@school.edu` | `demo1234`        |
+| Admin     | `admin@school.edu`     | `HackGB-Admin-2026` |
+
+> **Note:** this is for demoing/exploring. It deletes whatever data you
+> currently have, so run it only when you don't mind resetting the app.
 
 ## Promoting an admin
 

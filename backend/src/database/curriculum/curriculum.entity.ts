@@ -27,8 +27,8 @@ export class Curriculum {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'enum', enum: ['pdf', 'word', 'google_docs'] })
-  fileType: 'pdf' | 'word' | 'google_docs';
+  @Column({ type: 'enum', enum: ['pdf', 'word', 'google_docs', 'text'] })
+  fileType: 'pdf' | 'word' | 'google_docs' | 'text';
 
   @Column()
   fileName: string;

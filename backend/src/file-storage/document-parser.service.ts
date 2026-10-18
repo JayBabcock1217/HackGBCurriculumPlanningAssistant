@@ -17,11 +17,25 @@ export class DocumentParserService {
       case 'docx':
       case 'word':
         return this.parseWord(buffer);
+      case 'txt':
+      case 'text':
+        return this.parseText(buffer);
       default:
         throw new BadRequestException(
-          `Unsupported file type: ${fileType}. Supported: PDF, DOCX`,
+          `Unsupported file type: ${fileType}. Supported: PDF, DOCX, TXT`,
         );
     }
+  }
+
+  private parseText(buffer: Buffer): ParsedDocument {
+    const text = buffer.toString('utf-8');
+    this.logger.log(`Parsed plain text: ${text.length} characters`);
+    return {
+      text,
+      metadata: {
+        format: 'plain-text',
+      },
+    };
   }
 
   private async parsePdf(buffer: Buffer): Promise<ParsedDocument> {

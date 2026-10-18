@@ -9,7 +9,7 @@ export interface CreateCurriculumDto {
   subject?: string;
   gradeLevel?: string;
   description?: string;
-  fileType: 'pdf' | 'word' | 'google_docs';
+  fileType: 'pdf' | 'word' | 'google_docs' | 'text';
   fileName: string;
   fileUrl?: string;
   metadata?: Record<string, unknown>;

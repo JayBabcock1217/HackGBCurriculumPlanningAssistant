@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -54,7 +55,35 @@ export class CurriculumFileController {
       throw new Error('No file uploaded');
     }
 
-    const fileType = file.mimetype === 'application/pdf' ? 'pdf' : 'word';
+    // Determine the file type from the extension (most reliable) with the
+    // mimetype as a fallback. Anything else is rejected with a clear 400
+    // instead of a 500.
+    const ext = (file.originalname || '')
+      .split('.')
+      .pop()
+      ?.toLowerCase();
+    let fileType: 'pdf' | 'word' | 'text';
+    if (ext === 'pdf' || file.mimetype === 'application/pdf') {
+      fileType = 'pdf';
+    } else if (
+      ext === 'docx' ||
+      ext === 'doc' ||
+      file.mimetype ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.mimetype === 'application/msword'
+    ) {
+      fileType = 'word';
+    } else if (
+      ext === 'txt' ||
+      ext === 'text' ||
+      file.mimetype === 'text/plain'
+    ) {
+      fileType = 'text';
+    } else {
+      throw new BadRequestException(
+        `Unsupported file type: .${ext || 'unknown'}. Supported: PDF, DOCX, TXT`,
+      );
+    }
 
     return this.processingService.processCurriculum({
       teacherId,
@@ -102,7 +131,9 @@ export class CurriculumFileController {
     const contentType =
       curriculum.fileType === 'pdf'
         ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        : curriculum.fileType === 'word'
+          ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          : 'text/plain';
 
     res.setHeader('Content-Type', contentType);
     res.setHeader(

@@ -14,7 +14,8 @@
     "test": "npm run test --workspaces",
     "docker:up": "bash scripts/start.sh --no-build",
     "docker:down": "bash scripts/stop.sh",
-    "seed-admin": "bash scripts/seed-admin.sh"
+    "seed-admin": "bash scripts/seed-admin.sh",
+    "seed-demo": "bash scripts/seed-demo.sh"
   },
   "workspaces": [
     "frontend",

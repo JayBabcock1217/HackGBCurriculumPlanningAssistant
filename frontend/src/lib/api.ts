@@ -125,7 +125,7 @@ export interface Curriculum {
   subject?: string;
   gradeLevel?: string;
   description?: string;
-  fileType: 'pdf' | 'word' | 'google_docs';
+  fileType: 'pdf' | 'word' | 'google_docs' | 'text';
   fileName: string;
   chunkCount: number;
   createdAt: string;

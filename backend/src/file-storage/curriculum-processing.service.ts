@@ -44,7 +44,7 @@ export class CurriculumProcessingService {
     gradeLevel?: string;
     description?: string;
     fileName: string;
-    fileType: 'pdf' | 'word' | 'google_docs';
+    fileType: 'pdf' | 'word' | 'text';
     fileBuffer: Buffer;
     metadata?: Record<string, unknown>;
   }): Promise<ProcessCurriculumResult> {
@@ -68,7 +68,7 @@ export class CurriculumProcessingService {
         ? 'application/pdf'
         : fileType === 'word'
           ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-          : 'application/octet-stream';
+          : 'text/plain';
 
     await this.fileStorage.uploadFile(storageKey, fileBuffer, contentType);
     this.logger.log(`Step 1: File uploaded to ${storageKey}`);
