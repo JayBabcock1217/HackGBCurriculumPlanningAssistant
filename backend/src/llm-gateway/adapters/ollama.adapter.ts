@@ -6,6 +6,7 @@ import {
   LlmEmbedOptions,
   LlmEmbedResult,
   LlmMessage,
+  LlmModelInfo,
   LlmProviderError,
 } from '../llm-adapter.interface';
 import { LlmGatewayState } from '../llm-gateway.state';
@@ -24,7 +25,7 @@ export class OllamaAdapter implements LlmAdapter {
   private readonly logger = new Logger(OllamaAdapter.name);
 
   readonly provider = 'ollama';
-  readonly capabilities = ['chat', 'embed', 'local'];
+  readonly capabilities = ['chat', 'embed', 'local', 'list-models'];
 
   constructor(private readonly state: LlmGatewayState) {}
 
@@ -134,6 +135,37 @@ export class OllamaAdapter implements LlmAdapter {
       embedding,
       model: data.model || model,
       dimensions: embedding.length,
+    }));
+  }
+
+  /**
+   * List the models pulled into this Ollama server. GET {url}/api/tags
+   * returns { models: [{ name, model, ... }] }. We surface `name` (which
+   * includes the tag, e.g. "llama3.2:1b") as the id.
+   */
+  async listModels(): Promise<LlmModelInfo[]> {
+    let res: Response;
+    try {
+      res = await fetch(`${this.baseUrl}/api/tags`);
+    } catch (err) {
+      throw this.wrapError(`Ollama unreachable at ${this.baseUrl}: ${String(err)}`);
+    }
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      throw new LlmProviderError(
+        `Ollama list-models failed (${res.status}): ${detail.slice(0, 300)}`,
+        this.provider,
+      );
+    }
+
+    const data = (await res.json()) as {
+      models?: Array<{ name?: string; model?: string }>;
+    };
+    const models = data.models ?? [];
+    return models.map((m) => ({
+      id: m.name || m.model || '',
+      name: m.name || m.model,
     }));
   }
 

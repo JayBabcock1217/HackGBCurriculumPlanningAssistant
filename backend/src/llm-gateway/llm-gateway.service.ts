@@ -14,6 +14,7 @@ import {
   LlmEmbedOptions,
   LlmEmbedResult,
   LlmMessage,
+  LlmModelInfo,
   LlmProviderError,
 } from './llm-adapter.interface';
 import { loadLlmGatewayConfig, LlmProviderName } from './llm-gateway.config';
@@ -149,6 +150,39 @@ export class LlmGatewayService implements OnModuleInit {
         available: { chat: chatAvailable, embed: embedAvailable },
       };
     });
+  }
+
+  /**
+   * Enumerate the models available on a given provider's configured server.
+   * Used by the settings page to offer a dropdown of real model names. `for`
+   * is 'chat' or 'embed' so we query the right provider's server. Adapters
+   * that can't list models (Anthropic) throw a LlmProviderError, which we map
+   * to a friendly { ok:false, message } so the UI can show it.
+   */
+  async listModels(which: 'chat' | 'embed'): Promise<{
+    ok: boolean;
+    provider: string;
+    models: LlmModelInfo[];
+    message?: string;
+  }> {
+    const name = which === 'chat' ? this.config.chatProvider : this.config.embeddingProvider;
+    const adapter = this.adapters[name];
+    if (!adapter.capabilities.includes('list-models')) {
+      return {
+        ok: false,
+        provider: adapter.provider,
+        models: [],
+        message: `${adapter.provider} does not support listing models. Set the model by hand.`,
+      };
+    }
+    try {
+      const models = await adapter.listModels();
+      return { ok: true, provider: adapter.provider, models };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`LLM list-models failed (${adapter.provider}): ${message.slice(0, 200)}`);
+      return { ok: false, provider: adapter.provider, models: [], message: message.slice(0, 300) };
+    }
   }
 
   /**

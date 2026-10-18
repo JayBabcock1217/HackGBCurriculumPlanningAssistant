@@ -20,14 +20,17 @@ import {
   Save,
   Cpu,
   Database,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getLlmSettings,
   updateLlmSettings,
   testLlmConnection,
+  getLlmModels,
   type LlmProviderName,
   type LlmSettings,
   type LlmTestResult,
+  type LlmModelInfo,
 } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { AppShell } from '@/components/app-shell';
@@ -57,6 +60,43 @@ function Labeled({
   );
 }
 
+/**
+ * A model picker: a free-text input backed by a <datalist> of the models the
+ * server reported. Free text is always allowed (so a model not yet in the list
+ * can be typed), but the dropdown offers the real names.
+ */
+function ModelField({
+  value,
+  onChange,
+  listId,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  listId: string;
+  options: LlmModelInfo[];
+  placeholder?: string;
+}) {
+  return (
+    <>
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        list={listId}
+      />
+      <datalist id={listId}>
+        {options.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.name && m.name !== m.id ? m.name : ''}
+          </option>
+        ))}
+      </datalist>
+    </>
+  );
+}
+
 export default function SettingsPage() {
   const { user } = useAuth();
   const { t } = useI18n();
@@ -69,6 +109,10 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<LlmTestResult | null>(null);
+  const [listing, setListing] = useState<'chat' | 'embed' | null>(null);
+  const [chatModels, setChatModels] = useState<LlmModelInfo[]>([]);
+  const [embedModels, setEmbedModels] = useState<LlmModelInfo[]>([]);
+  const [modelsError, setModelsError] = useState<string | null>(null);
 
   // Form state (strings so inputs work freely before save).
   const [chatProvider, setChatProvider] = useState<LlmProviderName>('ollama');
@@ -174,6 +218,36 @@ export default function SettingsPage() {
     }
   }
 
+  /**
+   * Save the current form, then query the server(s) for the models they expose.
+   * Populates the chat/embed model dropdowns. Uses the selected providers.
+   */
+  async function refreshModels(which: 'chat' | 'embed') {
+    setListing(which);
+    setModelsError(null);
+    try {
+      // Save first so the server URL / provider we just typed is what we query.
+      await save();
+      const res = await getLlmModels(which);
+      if (res.ok) {
+        const list = res.models;
+        if (which === 'chat') setChatModels(list);
+        else setEmbedModels(list);
+        // If the list is non-empty and the current model isn't in it, keep the
+        // value (free text) but surface the options.
+        if (list.length === 0) {
+          setModelsError(`Connected to ${res.provider}, but no models were returned.`);
+        }
+      } else {
+        setModelsError(res.message ?? `Could not list models from ${res.provider}.`);
+      }
+    } catch (e) {
+      setModelsError(e instanceof Error ? e.message : 'Failed to list models');
+    } finally {
+      setListing(null);
+    }
+  }
+
   if (!isAdmin) {
     return (
       <AppShell>
@@ -248,6 +322,42 @@ export default function SettingsPage() {
                     handles embeddings. They can differ.
                   </CardDescription>
                 </CardHeader>
+                <div className="flex items-center justify-between px-6 pt-2">
+                  <span className="text-xs text-muted-foreground">
+                    Available models on the selected server:
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refreshModels('chat')}
+                      disabled={listing === 'chat' || loading}
+                    >
+                      {listing === 'chat' ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <RefreshCw />
+                      )}
+                      Chat models
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => refreshModels('embed')}
+                      disabled={listing === 'embed' || loading}
+                    >
+                      {listing === 'embed' ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <RefreshCw />
+                      )}
+                      Embed models
+                    </Button>
+                  </div>
+                </div>
+                {modelsError && (
+                  <p className="px-6 pt-2 text-xs text-destructive">{modelsError}</p>
+                )}
                 <CardContent className="space-y-4">
                   <Labeled label="Chat provider" hint="Used for suggestions, resources, and RAG answers.">
                     <select
@@ -318,16 +428,20 @@ export default function SettingsPage() {
                   </Labeled>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Labeled label="Chat model">
-                      <Input
+                      <ModelField
                         value={ollamaChatModel}
-                        onChange={(e) => setOllamaChatModel(e.target.value)}
+                        onChange={setOllamaChatModel}
+                        listId="ollama-chat-models"
+                        options={chatProvider === 'ollama' ? chatModels : []}
                         placeholder="llama3.2:1b"
                       />
                     </Labeled>
                     <Labeled label="Embedding model">
-                      <Input
+                      <ModelField
                         value={ollamaEmbedModel}
-                        onChange={(e) => setOllamaEmbedModel(e.target.value)}
+                        onChange={setOllamaEmbedModel}
+                        listId="ollama-embed-models"
+                        options={embeddingProvider === 'ollama' ? embedModels : []}
                         placeholder="nomic-embed-text"
                       />
                     </Labeled>
@@ -371,16 +485,20 @@ export default function SettingsPage() {
                   </Labeled>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Labeled label="Chat model">
-                      <Input
+                      <ModelField
                         value={openaiChatModel}
-                        onChange={(e) => setOpenaiChatModel(e.target.value)}
+                        onChange={setOpenaiChatModel}
+                        listId="openai-chat-models"
+                        options={chatProvider === 'openai' ? chatModels : []}
                         placeholder="llama-3.1-8b"
                       />
                     </Labeled>
                     <Labeled label="Embedding model">
-                      <Input
+                      <ModelField
                         value={openaiEmbedModel}
-                        onChange={(e) => setOpenaiEmbedModel(e.target.value)}
+                        onChange={setOpenaiEmbedModel}
+                        listId="openai-embed-models"
+                        options={embeddingProvider === 'openai' ? embedModels : []}
                         placeholder="nomic-embed-text"
                       />
                     </Labeled>

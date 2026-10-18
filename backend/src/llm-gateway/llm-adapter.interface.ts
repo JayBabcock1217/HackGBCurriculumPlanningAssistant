@@ -29,6 +29,13 @@ export interface LlmEmbedResult {
   dimensions: number;
 }
 
+export interface LlmModelInfo {
+  /** Model identifier as the server reports it (e.g. "llama3.2:1b"). */
+  id: string;
+  /** Human name, when the server provides one. */
+  name?: string;
+}
+
 /**
  * LlmAdapter
  *
@@ -39,7 +46,10 @@ export interface LlmEmbedResult {
 export interface LlmAdapter {
   /** Provider identifier: 'ollama' | 'openai' | 'anthropic'. */
   readonly provider: string;
-  /** Human-readable capability summary, used by the /llm/providers endpoint. */
+  /**
+   * Human-readable capability summary, used by the /llm/providers endpoint.
+   * Includes 'list-models' when the adapter can enumerate the server's models.
+   */
   readonly capabilities: string[];
 
   chat(messages: LlmMessage[], options?: LlmChatOptions): Promise<LlmChatResult>;
@@ -47,6 +57,14 @@ export interface LlmAdapter {
   embed(text: string, options?: LlmEmbedOptions): Promise<LlmEmbedResult>;
 
   embedBatch(texts: string[], options?: LlmEmbedOptions): Promise<LlmEmbedResult[]>;
+
+  /**
+   * Enumerate the models available on the configured server. Used by the
+   * settings page to offer a dropdown of real model names. Adapters that
+   * can't list models (Anthropic) should throw a LlmProviderError with a
+   * clear message.
+   */
+  listModels(): Promise<LlmModelInfo[]>;
 }
 
 /**

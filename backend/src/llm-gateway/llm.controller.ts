@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
 import { LlmGatewayService } from './llm-gateway.service';
 import { LlmMessage } from './llm-adapter.interface';
 import { LlmProviderName } from './llm-gateway.config';
@@ -85,6 +85,16 @@ export class LlmController {
   @Get('settings')
   settings() {
     return this.gateway.getSettings();
+  }
+
+  /**
+   * List the models available on the configured server. `for=chat` queries the
+   * chat provider's server, `for=embed` queries the embedding provider's.
+   */
+  @Roles('admin')
+  @Get('models')
+  models(@Query('for') which: 'chat' | 'embed' = 'chat') {
+    return this.gateway.listModels(which === 'embed' ? 'embed' : 'chat');
   }
 
   @Roles('admin')

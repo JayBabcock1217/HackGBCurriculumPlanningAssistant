@@ -7,6 +7,7 @@ import {
   LlmEmbedOptions,
   LlmEmbedResult,
   LlmMessage,
+  LlmModelInfo,
   LlmProviderError,
 } from '../llm-adapter.interface';
 import { LlmGatewayState } from '../llm-gateway.state';
@@ -22,7 +23,7 @@ import { LlmGatewayState } from '../llm-gateway.state';
 export class OpenAiAdapter implements LlmAdapter {
   private readonly logger = new Logger(OpenAiAdapter.name);
   readonly provider = 'openai';
-  readonly capabilities = ['chat', 'embed', 'cloud'];
+  readonly capabilities = ['chat', 'embed', 'cloud', 'list-models'];
 
   private client: OpenAI | null = null;
   private clientKey = '';
@@ -128,6 +129,26 @@ export class OpenAiAdapter implements LlmAdapter {
       }));
     } catch (err) {
       throw this.wrapError(err, 'embed', model);
+    }
+  }
+
+  /**
+   * List the models the OpenAI-compatible server exposes. GET /v1/models
+   * returns { data: [{ id, name?, ... }] }. Works with real OpenAI and with
+   * local servers (LM Studio, llama.cpp, vLLM, Ollama /v1) that implement the
+   * standard models endpoint.
+   */
+  async listModels(): Promise<LlmModelInfo[]> {
+    const client = this.clientOrThrow;
+
+    try {
+      const response = await client.models.list();
+      const models = response.data ?? [];
+      return models
+        .map((m) => ({ id: m.id, name: (m as { name?: string }).name }))
+        .filter((m) => m.id);
+    } catch (err) {
+      throw this.wrapError(err, 'list-models', '');
     }
   }
 

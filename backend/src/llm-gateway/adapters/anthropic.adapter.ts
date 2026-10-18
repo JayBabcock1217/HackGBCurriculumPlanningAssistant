@@ -7,6 +7,7 @@ import {
   LlmEmbedOptions,
   LlmEmbedResult,
   LlmMessage,
+  LlmModelInfo,
   LlmProviderError,
 } from '../llm-adapter.interface';
 import { LlmGatewayState } from '../llm-gateway.state';
@@ -131,6 +132,18 @@ export class AnthropicAdapter implements LlmAdapter {
     throw new LlmProviderError(
       `Anthropic adapter does not support embeddings (got ${texts.length} text(s)). ` +
         'Set LLM_EMBEDDING_PROVIDER=ollama (or openai) to use a different provider for embeddings.',
+      this.provider,
+    );
+  }
+
+  /**
+   * Anthropic does not expose a public model-listing endpoint, so we can't
+   * enumerate its models. Surface a clear message so the settings UI can show
+   * it instead of a dead dropdown.
+   */
+  async listModels(): Promise<LlmModelInfo[]> {
+    throw new LlmProviderError(
+      'Anthropic does not support listing models. Set the chat model by hand (e.g. claude-sonnet-4-20250514).',
       this.provider,
     );
   }

@@ -516,3 +516,19 @@ export const updateLlmSettings = (body: LlmSettingsUpdate) =>
 
 export const testLlmConnection = () =>
   request<LlmTestResult>('/api/llm/test', { method: 'POST' });
+
+export interface LlmModelInfo {
+  id: string;
+  name?: string;
+}
+
+export interface LlmModelsResult {
+  ok: boolean;
+  provider: string;
+  models: LlmModelInfo[];
+  message?: string;
+}
+
+/** List the models available on the configured server (chat or embed provider). */
+export const getLlmModels = (which: 'chat' | 'embed') =>
+  request<LlmModelsResult>(`/api/llm/models?for=${which}`);
