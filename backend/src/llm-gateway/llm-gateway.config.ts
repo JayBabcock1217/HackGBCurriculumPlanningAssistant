@@ -27,6 +27,35 @@ export interface LlmGatewayConfig {
 
 const PROVIDERS: LlmProviderName[] = ['ollama', 'openai', 'anthropic'];
 
+/**
+ * LLM_LOCAL_HOST is a platform-independent token for "the machine that is
+ * running the app" (the Docker host). A local LLM server started on the dev's
+ * laptop/desktop — e.g. Ollama, LM Studio, llama.cpp server, vLLM — listens on
+ * that host's localhost, which is NOT reachable from inside a container via
+ * `localhost`. Instead, use it like:
+ *
+ *   OLLAMA_URL=http://local-host:11434
+ *   OPENAI_BASE_URL=http://local-host:1234/v1
+ *
+ *   - Inside a Docker container (any OS) it resolves to the Docker host
+ *     (`host.docker.internal` on macOS/Windows, `host-gateway` on Linux, via
+ *     docker-compose's extra_hosts), which points at the host's loopback.
+ *
+ * When running the backend natively (no container) just put your real local
+ * address in the URL (e.g. http://127.0.0.1:11434), or set HOST_DOCKER_INTERNAL
+ * to override the resolved host in a container.
+ */
+export const LOCAL_HOST_TOKEN = 'local-host';
+
+export function resolveLocalHostToken(url: string, env: NodeJS.ProcessEnv = process.env): string {
+  if (!url.includes(LOCAL_HOST_TOKEN)) {
+    return url;
+  }
+  const host = (env.HOST_DOCKER_INTERNAL || '').trim() || 'host.docker.internal';
+  // Replace only the authority host so the port and any path survive.
+  return url.replace(LOCAL_HOST_TOKEN, host);
+}
+
 function parseProvider(value: string | undefined, fallback: LlmProviderName): LlmProviderName {
   const v = (value || '').trim().toLowerCase();
   if (PROVIDERS.includes(v as LlmProviderName)) {
@@ -46,7 +75,7 @@ export function loadLlmGatewayConfig(env: NodeJS.ProcessEnv = process.env): LlmG
     defaultEmbeddingModel: env.LLM_EMBEDDING_MODEL || '',
 
     ollama: {
-      url: env.OLLAMA_URL || 'http://localhost:11434',
+      url: resolveLocalHostToken(env.OLLAMA_URL || 'http://localhost:11434', env),
       chatModel: env.OLLAMA_CHAT_MODEL || 'llama3.2:1b',
       embeddingModel: env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text',
     },
@@ -54,12 +83,12 @@ export function loadLlmGatewayConfig(env: NodeJS.ProcessEnv = process.env): LlmG
       apiKey: env.OPENAI_API_KEY || null,
       chatModel: env.OPENAI_CHAT_MODEL || 'gpt-4o-mini',
       embeddingModel: env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
-      baseURL: env.OPENAI_BASE_URL || '',
+      baseURL: resolveLocalHostToken(env.OPENAI_BASE_URL || '', env),
     },
     anthropic: {
       apiKey: env.ANTHROPIC_API_KEY || null,
       chatModel: env.ANTHROPIC_CHAT_MODEL || 'claude-sonnet-4-20250514',
-      baseURL: env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com',
+      baseURL: resolveLocalHostToken(env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com', env),
     },
   };
 }

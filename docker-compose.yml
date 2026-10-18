@@ -74,6 +74,34 @@ services:
       # Chunk 11: JWT signing secret. Dev fallback; set AUTH_JWT_SECRET in .env
       # for anything non-local.
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-hackgb-dev-jwt-secret-change-in-prod}
+
+      # ---- LLM Gateway (see .env.example "LLM" section) ----
+      # Forward every LLM var into the container so you can point the app at a
+      # model server running on your HOST machine (Ollama, LM Studio, llama.cpp,
+      # vLLM, etc.). Use the special host `local-host` in the URL to mean "the
+      # machine running the app" — it resolves to host.docker.internal inside
+      # the container and to 127.0.0.1 when you run the backend natively.
+      # Examples:
+      #   OLLAMA_URL=http://local-host:11434  LLM_PROVIDER=ollama
+      #   OPENAI_BASE_URL=http://local-host:1234/v1  LLM_PROVIDER=openai
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_CHAT_PROVIDER: ${LLM_CHAT_PROVIDER:-}
+      LLM_EMBEDDING_PROVIDER: ${LLM_EMBEDDING_PROVIDER:-}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:1b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      ANTHROPIC_CHAT_MODEL: ${ANTHROPIC_CHAT_MODEL:-claude-sonnet-4-20250514}
+    # host.docker.internal -> the Docker host (172.17.0.1). Needed on Linux;
+    # on macOS/Windows Docker Desktop it resolves to the host automatically.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Host port is allocated dynamically by scripts/start.sh (first free in
       # 3100-3199) and passed in as BACKEND_PORT. The container always listens
