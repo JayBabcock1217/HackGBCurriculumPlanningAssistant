@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CurriculumModule } from '../database/curriculum/curriculum.module';
+import { LlmGatewayModule } from '../llm-gateway/llm-gateway.module';
 import { FileStorageService } from './file-storage.service';
 import { DocumentParserService } from './document-parser.service';
 import { TextChunkingService } from './text-chunking.service';
@@ -8,7 +9,7 @@ import { CurriculumProcessingService } from './curriculum-processing.service';
 import { CurriculumFileController } from './curriculum-file.controller';
 
 @Module({
-  imports: [CurriculumModule],
+  imports: [CurriculumModule, LlmGatewayModule],
   controllers: [CurriculumFileController],
   providers: [
     FileStorageService,

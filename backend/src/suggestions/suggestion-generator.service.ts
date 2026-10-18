@@ -160,7 +160,9 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
         : new BadRequestException('The model did not return valid options. Please try again.');
     }
 
-    // 6. Persist each option
+    // 6. Persist each option. All options from the same generation share a
+    //    generationId so the UI can group them as one "set of options".
+    const generationId = `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const saved: LessonOption[] = [];
     for (const opt of parsed.options) {
       await this.suggestionService.create({
@@ -169,6 +171,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
         title: opt.title,
         details: {
           summary: opt.summary,
+          generationId,
           sources: sources.map((s) => ({
             chunkId: s.chunkId,
             similarity: s.similarity,

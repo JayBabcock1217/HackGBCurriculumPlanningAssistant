@@ -5,6 +5,7 @@ import { DocumentParserService } from './document-parser.service';
 import { TextChunkingService } from './text-chunking.service';
 import { EmbeddingService } from './embedding.service';
 import { CurriculumService } from '../database/curriculum/curriculum.service';
+import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 
 describe('CurriculumProcessingService', () => {
   let service: CurriculumProcessingService;
@@ -13,6 +14,7 @@ describe('CurriculumProcessingService', () => {
   let chunker: jest.Mocked<TextChunkingService>;
   let embedder: jest.Mocked<EmbeddingService>;
   let curriculumService: jest.Mocked<CurriculumService>;
+  let gateway: { embedBatch: jest.Mock; embed: jest.Mock };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,6 +59,15 @@ describe('CurriculumProcessingService', () => {
             searchByEmbedding: jest.fn(),
           },
         },
+        {
+          provide: LlmGatewayService,
+          useValue: {
+            embed: jest.fn(),
+            embedBatch: jest.fn(),
+            chat: jest.fn(),
+            listProviders: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -68,6 +79,10 @@ describe('CurriculumProcessingService', () => {
     curriculumService = module.get(
       CurriculumService,
     ) as jest.Mocked<CurriculumService>;
+    gateway = module.get(LlmGatewayService) as unknown as {
+      embedBatch: jest.Mock;
+      embed: jest.Mock;
+    };
   });
 
   it('should be defined', () => {
@@ -101,11 +116,14 @@ describe('CurriculumProcessingService', () => {
         },
       ];
       chunker.chunkText.mockReturnValue(chunks);
-      embedder.embedBatch.mockResolvedValue(
+      // Chunk 5: embeddings now come from the LLM gateway (real model),
+      // not the legacy pseudo-embedder.
+      gateway.embedBatch.mockResolvedValue(
         chunks.map(() => ({
           embedding: [0.1, 0.2, 0.3],
           model: 'test-model',
           tokenCount: 50,
+          dimensions: 3,
         })),
       );
       curriculumService.create.mockResolvedValue({
@@ -140,7 +158,8 @@ describe('CurriculumProcessingService', () => {
       expect(createArgs.fileType).toBe('pdf');
       expect(createArgs.fileUrl).toContain('curricula/teacher-1/');
       expect(chunker.chunkText).toHaveBeenCalledWith(sampleText);
-      expect(embedder.embedBatch).toHaveBeenCalledTimes(1);
+      expect(gateway.embedBatch).toHaveBeenCalledTimes(1);
+      expect(embedder.embedBatch).not.toHaveBeenCalled();
       expect(curriculumService.addChunks).toHaveBeenCalledTimes(1);
 
       const addChunksArgs = curriculumService.addChunks.mock.calls[0];
@@ -218,17 +237,19 @@ describe('CurriculumProcessingService', () => {
   });
 
   describe('searchCurriculum', () => {
-    it('should embed the query and search by embedding', async () => {
-      embedder.embedText.mockResolvedValue({
+    it('should embed the query via the gateway and search by embedding', async () => {
+      gateway.embed.mockResolvedValue({
         embedding: [0.5, 0.5],
         model: 'test-model',
         tokenCount: 10,
+        dimensions: 2,
       });
       curriculumService.searchByEmbedding.mockResolvedValue([]);
 
       await service.searchCurriculum('fractions lesson', 'cur-1', 5);
 
-      expect(embedder.embedText).toHaveBeenCalledWith('fractions lesson');
+      expect(gateway.embed).toHaveBeenCalledWith('fractions lesson');
+      expect(embedder.embedText).not.toHaveBeenCalled();
       expect(curriculumService.searchByEmbedding).toHaveBeenCalledWith(
         [0.5, 0.5],
         'cur-1',
@@ -237,10 +258,11 @@ describe('CurriculumProcessingService', () => {
     });
 
     it('should use default limit of 10', async () => {
-      embedder.embedText.mockResolvedValue({
+      gateway.embed.mockResolvedValue({
         embedding: [0.1],
         model: 'test-model',
         tokenCount: 5,
+        dimensions: 1,
       });
       curriculumService.searchByEmbedding.mockResolvedValue([]);
 

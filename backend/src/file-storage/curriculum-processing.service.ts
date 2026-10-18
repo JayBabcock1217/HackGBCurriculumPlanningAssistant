@@ -9,6 +9,7 @@ import { DocumentParserService } from './document-parser.service';
 import { TextChunkingService, TextChunk } from './text-chunking.service';
 import { EmbeddingService } from './embedding.service';
 import { CurriculumService } from '../database/curriculum/curriculum.service';
+import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 
 export interface ProcessCurriculumResult {
   curriculumId: string;
@@ -28,6 +29,9 @@ export class CurriculumProcessingService {
     private readonly chunker: TextChunkingService,
     private readonly embedder: EmbeddingService,
     private readonly curriculumService: CurriculumService,
+    // Chunk 5: real embeddings via the LLM gateway (replaces pseudo-embeddings
+    // so uploads are immediately RAG-searchable with the same model as queries).
+    private readonly gateway: LlmGatewayService,
   ) {}
 
   /**
@@ -98,9 +102,10 @@ export class CurriculumProcessingService {
     const chunks = this.chunker.chunkText(parsed.text);
     this.logger.log(`Step 4: Text chunked into ${chunks.length} chunks`);
 
-    // 5. Generate embeddings for each chunk
-    this.logger.log('Step 5: Generating embeddings...');
-    const embeddingResults = await this.embedder.embedBatch(
+    // 5. Generate embeddings for each chunk via the LLM gateway (real model).
+    //    This keeps new uploads dimension-consistent with RAG queries.
+    this.logger.log('Step 5: Generating embeddings via LLM gateway...');
+    const embeddingResults = await this.gateway.embedBatch(
       chunks.map((c) => c.content),
     );
 
@@ -141,12 +146,13 @@ export class CurriculumProcessingService {
     curriculumId?: string,
     limit: number = 10,
   ) {
-    // Embed the query
-    const queryEmbedding = await this.embedder.embedText(query);
+    // Embed the query via the LLM gateway (real model) so it matches the
+    // dimension of the stored chunk embeddings.
+    const { embedding } = await this.gateway.embed(query);
 
     // Search using vector similarity
     return this.curriculumService.searchByEmbedding(
-      queryEmbedding.embedding,
+      embedding,
       curriculumId,
       limit,
     );
