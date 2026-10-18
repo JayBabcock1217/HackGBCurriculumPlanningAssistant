@@ -16,6 +16,12 @@ source "${SCRIPT_DIR}/lib/docker-env.sh"
 
 resolve_docker || exit 1
 
+# Git Bash (MSYS2) rewrites absolute POSIX paths like /app/... into Windows
+# paths before docker sees them, breaking 'docker exec' with "no such file or
+# directory". Disable that conversion (no-op on macOS/Linux).
+export MSYS_NO_PATHCONV=1
+export MSWIN_PATH_MAX=1000000
+
 # Default credentials (override via env vars).
 EMAIL="${SEED_ADMIN_EMAIL:-admin@school.edu}"
 PASSWORD="${SEED_ADMIN_PASSWORD:-hackgb123}"

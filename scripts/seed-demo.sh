@@ -19,6 +19,14 @@ source "${SCRIPT_DIR}/lib/docker-env.sh"
 
 resolve_docker || exit 1
 
+# Git Bash (MSYS2) rewrites absolute POSIX paths like /app/... into Windows
+# paths (e.g. "apps/...") before docker sees them, so 'docker exec' gets a
+# mangled path and fails with "no such file or directory". Disable that
+# conversion for this script so the path reaches the container intact. This is
+# a no-op on macOS/Linux (the env var simply isn't read there).
+export MSYS_NO_PATHCONV=1
+export MSWIN_PATH_MAX=1000000
+
 # The seed script runs INSIDE the backend container, so it must be baked into
 # the image at build time. If the running container was built from an older
 # image (before the seed script existed), the file won't be inside it and
