@@ -150,18 +150,18 @@ export default function ResourcesPage() {
     if (!job) return;
     const jobId = job.jobId;
 
-    // Progress + elapsed counter, computed from the stored start time so the
-    // bar doesn't reset when the component remounts.
-    setProgress(0);
-    setElapsed(0);
+    // Progress + elapsed are pure functions of the stored start time, so they
+    // are identical whether the component mounted for the first time or
+    // re-attached after navigation — the bar never resets to 0 on return.
+    // Ease toward 95% asymptotically; the final jump to 100 happens on success.
     const start = job.startedAt;
-    tickRef.current = setInterval(() => {
+    const compute = () => {
       const secs = Math.max(0, Math.floor((Date.now() - start) / 1000));
       setElapsed(secs);
-      // Ease toward 95% asymptotically; the final jump to 100 happens on
-      // success.
-      setProgress((p) => Math.min(95, p + Math.max(0.5, (95 - p) * 0.03)));
-    }, 300);
+      setProgress(Math.min(95, 95 * (1 - Math.exp(-secs / 25))));
+    };
+    compute();
+    tickRef.current = setInterval(compute, 300);
 
     // Poll the server every 2s for the job outcome.
     let cancelled = false;
