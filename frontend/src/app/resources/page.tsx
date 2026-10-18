@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -21,13 +20,16 @@ import {
   Users,
   BookOpen,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import {
-  generateSuggestions,
+  startResourceGeneration,
+  getResourceJobStatus,
   getStudents,
   getCurricula,
   type Student,
   type Curriculum,
+  type ResourceJobStatus,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { AppShell } from '@/components/app-shell';
@@ -41,20 +43,57 @@ const KIND_FOCUS: Record<ResourceKind, string> = {
   practice: 'a set of graded practice problems progressing from easy to hard',
 };
 
-interface GeneratedResource {
-  title: string;
-  type: string;
-  summary: string;
-  content: string;
+/** localStorage key for the in-flight job. Survives page navigation and reloads. */
+const JOB_KEY = 'hackgb-resource-job';
+
+interface StoredJob {
+  jobId: string;
+  startedAt: number;
+  kind: ResourceKind;
+  focus: string;
+}
+
+function loadStoredJob(): StoredJob | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(JOB_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.jobId === 'string') return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredJob(job: StoredJob): void {
+  try {
+    localStorage.setItem(JOB_KEY, JSON.stringify(job));
+  } catch {
+    // ignore
+  }
+}
+
+function clearStoredJob(): void {
+  try {
+    localStorage.removeItem(JOB_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 /**
  * Resources page (Chunk 12)
  *
  * Teacher-initiated, slow generation path. Resources are never generated
- * automatically — the teacher picks a student + type and triggers it. A
- * progress indicator animates while the LLM works (the call can take ~60s on
- * a small local model).
+ * automatically — the teacher picks a student + type and triggers it.
+ *
+ * Persistence: the generation is a BACKGROUND job on the server (it returns a
+ * jobId immediately and keeps running after the HTTP request ends). The jobId
+ * is stored in localStorage, so if the teacher navigates to another page and
+ * comes back — or even reloads the browser — the page re-attaches to the job,
+ * resumes the progress indicator from the original start time, and shows the
+ * finished resource as soon as it is ready.
  */
 export default function ResourcesPage() {
   const { t } = useI18n();
@@ -64,13 +103,17 @@ export default function ResourcesPage() {
   const [curriculumId, setCurriculumId] = useState('');
   const [kind, setKind] = useState<ResourceKind>('worksheet');
   const [focus, setFocus] = useState('');
-  const [generating, setGenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Background job state.
+  const [job, setJob] = useState<StoredJob | null>(null);
+  const [jobStatus, setJobStatus] = useState<ResourceJobStatus | null>(null);
   const [progress, setProgress] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<GeneratedResource | null>(null);
-  const [loading, setLoading] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [result, setResult] = useState<ResourceJobStatus['options'][number] | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -86,55 +129,100 @@ export default function ResourcesPage() {
     }
   }, []);
 
+  // On mount: load students/curricula and re-attach to any in-flight job.
   useEffect(() => {
     load();
+    const stored = loadStoredJob();
+    if (stored) {
+      setJob(stored);
+      setFocus(stored.focus);
+    }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
     };
   }, [load]);
 
-  // While generating, advance the progress bar and a live elapsed-seconds
-  // counter so the teacher can see it is working (not frozen).
+  // While a job is in flight, animate the progress bar (from the original
+  // start time so it stays accurate across navigation) and poll the server
+  // for the job's status.
   useEffect(() => {
-    if (!generating) return;
+    if (!job) return;
+    const jobId = job.jobId;
+
+    // Progress + elapsed counter, computed from the stored start time so the
+    // bar doesn't reset when the component remounts.
     setProgress(0);
     setElapsed(0);
-    const start = Date.now();
-    timerRef.current = setInterval(() => {
-      const secs = Math.floor((Date.now() - start) / 1000);
+    const start = job.startedAt;
+    tickRef.current = setInterval(() => {
+      const secs = Math.max(0, Math.floor((Date.now() - start) / 1000));
       setElapsed(secs);
       // Ease toward 95% asymptotically; the final jump to 100 happens on
       // success.
       setProgress((p) => Math.min(95, p + Math.max(0.5, (95 - p) * 0.03)));
     }, 300);
+
+    // Poll the server every 2s for the job outcome.
+    let cancelled = false;
+    async function poll() {
+      try {
+        const status = await getResourceJobStatus(jobId);
+        if (cancelled) return;
+        setJobStatus(status);
+        if (status.status === 'pending' && status.options.length > 0) {
+          setResult(status.options[0]);
+          setProgress(100);
+          clearStoredJob();
+          setJob(null);
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (tickRef.current) clearInterval(tickRef.current);
+        } else if (status.status === 'failed') {
+          setError(status.error || t('resources.failedTitle'));
+          clearStoredJob();
+          setJob(null);
+          if (pollRef.current) clearInterval(pollRef.current);
+          if (tickRef.current) clearInterval(tickRef.current);
+        }
+      } catch (e) {
+        // Transient network error: keep polling; surface a soft message.
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Connection problem');
+      }
+    }
+    poll();
+    pollRef.current = setInterval(poll, 2000);
+
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
     };
-  }, [generating]);
+  }, [job, t]);
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     if (!studentId || !curriculumId) return;
-    setGenerating(true);
     setError(null);
     setResult(null);
     try {
-      const res = await generateSuggestions({
+      const { jobId } = await startResourceGeneration({
         studentId,
         curriculumId,
         optionCount: 1,
         // Chunk 12: steer the generator toward a single, specific resource type.
         focus: `${KIND_FOCUS[kind]}${focus ? ` — focus: ${focus}` : ''}`,
+        kind,
       });
-      // Take the first (only) option as the resource.
-      if (res.options.length > 0) {
-        setResult(res.options[0]);
-        setProgress(100);
-      }
+      const storedJob: StoredJob = {
+        jobId,
+        startedAt: Date.now(),
+        kind,
+        focus,
+      };
+      saveStoredJob(storedJob);
+      setJob(storedJob);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
-    } finally {
-      setGenerating(false);
     }
   }
 
@@ -151,12 +239,24 @@ export default function ResourcesPage() {
     URL.revokeObjectURL(url);
   }
 
+  function discardJob() {
+    clearStoredJob();
+    setJob(null);
+    setJobStatus(null);
+    setResult(null);
+    setError(null);
+    setFocus('');
+  }
+
   const kindLabel =
     kind === 'worksheet'
       ? t('resources.worksheet')
       : kind === 'reading'
         ? t('resources.reading')
         : t('resources.practice');
+
+  // Show the in-progress card when a job is in flight and not yet finished.
+  const inProgress = !!job && !result;
 
   return (
     <AppShell>
@@ -166,7 +266,7 @@ export default function ResourcesPage() {
           <p className="text-sm text-muted-foreground">{t('resources.subtitle')}</p>
         </div>
 
-        {error && (
+        {error && !inProgress && (
           <Card className="border-destructive/50">
             <CardContent className="flex items-center gap-3 p-4 text-sm">
               <CloudOff className="h-5 w-5 text-destructive" />
@@ -175,132 +275,136 @@ export default function ResourcesPage() {
           </Card>
         )}
 
-        {/* Trigger form */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              {t('resources.generate')}
-            </CardTitle>
-            <CardDescription>
-              {t('resources.pickStudent')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        {/* In-progress indicator (persists across navigation) */}
+        {inProgress && (
+          <Card className="border-primary/40">
+            <CardHeader className="flex-row items-start justify-between space-y-0">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  {t('resources.inProgressTitle')}
+                </CardTitle>
+                <CardDescription>
+                  {t('resources.inProgressDesc')}
+                </CardDescription>
               </div>
-            ) : students.length === 0 ? (
-              <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
-                {t('resources.noStudent')}
-              </p>
-            ) : (
-              <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                    <Users className="h-3 w-3" /> {t('suggestions.student')}
-                  </label>
-                  <select
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    required
-                  >
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.firstName} {s.lastName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                    <BookOpen className="h-3 w-3" /> {t('suggestions.curriculum')}
-                  </label>
-                  <select
-                    value={curriculumId}
-                    onChange={(e) => setCurriculumId(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                    required
-                  >
-                    <option value="">—</option>
-                    {curricula.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    {t('resources.type')}
-                  </label>
-                  <select
-                    value={kind}
-                    onChange={(e) => setKind(e.target.value as ResourceKind)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
-                  >
-                    <option value="worksheet">{t('resources.worksheet')}</option>
-                    <option value="reading">{t('resources.reading')}</option>
-                    <option value="practice">{t('resources.practice')}</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    {t('resources.focus')}
-                  </label>
-                  <Input
-                    value={focus}
-                    onChange={(e) => setFocus(e.target.value)}
-                    placeholder={t('resources.focusPlaceholder')}
-                  />
-                </div>
-                <div className="sm:col-span-2 lg:col-span-4">
-                  <Button
-                    type="submit"
-                    disabled={generating || !studentId || !curriculumId}
-                  >
-                    {generating ? (
-                      <>
-                        <Loader2 className="animate-spin" />
-                        {t('resources.generating')}
-                      </>
-                    ) : (
-                      <>
-                        <FileInput /> {t('resources.generate')}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Progress indicator during generation */}
-        {generating && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                {t('resources.generating')}
-              </CardTitle>
-              <CardDescription>
-                {kindLabel} · {elapsed}s
-              </CardDescription>
+              <Button variant="ghost" size="icon" onClick={discardJob} aria-label="Cancel">
+                <X className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent>
               <Progress value={progress} />
-              <p className="mt-2 text-xs text-muted-foreground">
-                {Math.round(progress)}%
+              <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span>{Math.round(progress)}%</span>
+                <span>
+                  {kindLabel} · {elapsed}s
+                </span>
+              </div>
+              <p className="mt-3 text-sm text-muted-foreground">
+                {t('resources.viewWhenReady')}
               </p>
             </CardContent>
           </Card>
         )}
 
+        {/* Trigger form (hidden while a job is in flight) */}
+        {!inProgress && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                {t('resources.generate')}
+              </CardTitle>
+              <CardDescription>
+                {t('resources.pickStudent')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : students.length === 0 ? (
+                <p className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
+                  {t('resources.noStudent')}
+                </p>
+              ) : (
+                <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <Users className="h-3 w-3" /> {t('suggestions.student')}
+                    </label>
+                    <select
+                      value={studentId}
+                      onChange={(e) => setStudentId(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      required
+                    >
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.firstName} {s.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <BookOpen className="h-3 w-3" /> {t('suggestions.curriculum')}
+                    </label>
+                    <select
+                      value={curriculumId}
+                      onChange={(e) => setCurriculumId(e.target.value)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      required
+                    >
+                      <option value="">—</option>
+                      {curricula.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {t('resources.type')}
+                    </label>
+                    <select
+                      value={kind}
+                      onChange={(e) => setKind(e.target.value as ResourceKind)}
+                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    >
+                      <option value="worksheet">{t('resources.worksheet')}</option>
+                      <option value="reading">{t('resources.reading')}</option>
+                      <option value="practice">{t('resources.practice')}</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">
+                      {t('resources.focus')}
+                    </label>
+                    <Input
+                      value={focus}
+                      onChange={(e) => setFocus(e.target.value)}
+                      placeholder={t('resources.focusPlaceholder')}
+                    />
+                  </div>
+                  <div className="sm:col-span-2 lg:col-span-4">
+                    <Button
+                      type="submit"
+                      disabled={!studentId || !curriculumId}
+                    >
+                      <FileInput /> {t('resources.generate')}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Result */}
-        {result && !generating && (
+        {result && !inProgress && (
           <Card>
             <CardHeader className="flex-row items-start justify-between">
               <div>
@@ -320,10 +424,7 @@ export default function ResourcesPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => {
-                    setResult(null);
-                    setFocus('');
-                  }}
+                  onClick={discardJob}
                 >
                   <RefreshCw /> {t('resources.newResource')}
                 </Button>

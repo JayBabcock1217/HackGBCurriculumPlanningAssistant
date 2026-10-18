@@ -22,6 +22,11 @@ export interface GenerateSuggestionsOptions {
    * lesson/plan content itself is translated when this is set.
    */
   language?: string;
+  /**
+   * Chunk 12: the resource type being generated (worksheet/reading/practice).
+   * Stored on the job row so the UI can show a label while waiting.
+   */
+  kind?: string;
 }
 
 export interface LessonOption {
@@ -39,12 +44,39 @@ export interface SuggestionSource {
   curriculumId: string;
 }
 
+/**
+ * Chunk 12: a compact source reference persisted on a background job row.
+ * The full SuggestionSource (with chunk text) is returned by the synchronous
+ * /generate path; the job only needs chunkId + similarity for display.
+ */
+export interface JobSource {
+  chunkId: string;
+  similarity: number;
+}
+
 export interface GenerateSuggestionsResult {
   studentId: string;
   curriculumId: string;
   options: LessonOption[];
-  sources: SuggestionSource[];
+  /**
+   * Synchronous /generate returns full SuggestionSource objects; the
+   * background status endpoint returns the compact JobSource shape (chunkId +
+   * similarity only). Both are acceptable.
+   */
+  sources: Array<SuggestionSource | JobSource>;
   model: string;
+  /**
+   * Chunk 12: present on background-job status responses.
+   *  - 'generating' — the LLM is still working (options is empty).
+   *  - 'pending'    — complete; options[0] is the finished resource.
+   *  - 'failed'     — errored; see `error`.
+   * Omitted for the synchronous /generate path (always complete).
+   */
+  status?: 'generating' | 'pending' | 'failed';
+  /** The background job id (suggestion row) for status polling. */
+  jobId?: string;
+  /** Present when status === 'failed'. */
+  error?: string;
 }
 
 /**
@@ -73,6 +105,98 @@ export class SuggestionGeneratorService {
     private readonly gateway: LlmGatewayService,
     private readonly feedbackService: FeedbackService,
   ) {}
+
+  /**
+   * Chunk 12: start a background resource-generation job and return its id
+   * immediately. The LLM work runs detached from the HTTP request (see
+   * `runJob`), so the teacher can navigate away and come back; progress and
+   * the finished resource are persisted in the database and reloaded via the
+   * status endpoint.
+   */
+  async startJob(options: GenerateSuggestionsOptions, ownerId?: string): Promise<string> {
+    const job = await this.suggestionService.createPendingJob({
+      studentId: options.studentId,
+      curriculumId: options.curriculumId,
+      ownerId,
+      focus: options.focus,
+      kind: options.kind,
+    });
+    // Detach from the request lifecycle: don't await, and swallow rejections
+    // (runJob records them on the job row) so the HTTP response has already
+    // been sent by the time the LLM work completes or fails.
+    void this.runJob(job.id, options, ownerId).catch((e) =>
+      this.logger.error(
+        `Background job ${job.id} crashed: ${e instanceof Error ? e.stack : e}`,
+      ),
+    );
+    return job.id;
+  }
+
+  /**
+   * Chunk 12: read the current state of a background generation job. Throws
+   * 404 if the job does not exist or belongs to a different user.
+   */
+  async jobStatus(id: string, ownerId?: string): Promise<GenerateSuggestionsResult> {
+    const job = await this.suggestionService.findOne(id);
+    if (ownerId && job.ownerId && job.ownerId !== ownerId) {
+      throw new BadRequestException('Not your generation');
+    }
+    const d = (job.details as Record<string, unknown>) || {};
+    const opt: LessonOption = {
+      title: job.title || 'Generated resource',
+      type: (job.type as LessonOption['type']) || 'resource',
+      summary: String(d.summary || ''),
+      content: job.content,
+    };
+    return {
+      studentId: job.student?.id,
+      curriculumId: job.curriculum?.id,
+      status: job.status as GenerateSuggestionsResult['status'],
+      jobId: job.id,
+      options: job.status === 'pending' ? [opt] : [],
+      sources: Array.isArray(d.sources)
+        ? (d.sources as JobSource[])
+        : [],
+      model: job.modelUsed || '',
+      error: d.error ? String(d.error) : undefined,
+    };
+  }
+
+  /**
+   * Chunk 12: the actual LLM pipeline, executed in the background and writing
+   * its outcome back to the job row. On success the row becomes a normal
+   * 'pending' suggestion (visible on the Suggestions page); on failure it is
+   * marked 'failed' with a message the UI can surface.
+   */
+  private async runJob(
+    jobId: string,
+    options: GenerateSuggestionsOptions,
+    ownerId?: string,
+  ): Promise<void> {
+    try {
+      const result = await this.generate(options);
+      const opt = result.options[0];
+      const sources = (result.sources || []).map((s) => ({
+        chunkId: s.chunkId,
+        similarity: s.similarity,
+      }));
+      await this.suggestionService.resolveJob(jobId, {
+        type: opt?.type,
+        title: opt?.title || 'Generated resource',
+        content: opt?.content || '',
+        summary: opt?.summary,
+        modelUsed: result.model,
+        sources,
+      });
+      this.logger.log(`Background job ${jobId} completed`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.logger.warn(`Background job ${jobId} failed: ${message}`);
+      await this.suggestionService
+        .resolveJob(jobId, { type: 'resource', title: 'Generation failed', content: '', status: 'failed', error: message })
+        .catch(() => undefined);
+    }
+  }
 
   async generate(options: GenerateSuggestionsOptions): Promise<GenerateSuggestionsResult> {
     const optionCount = Math.min(Math.max(options.optionCount ?? 3, 1), 5);

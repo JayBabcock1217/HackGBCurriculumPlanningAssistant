@@ -203,6 +203,13 @@
     "newResource": "Nuevo Recurso",
     "type": "Tipo",
     "focus": "Enfoque (opcional)",
-    "focusPlaceholder": "ej. adición con reagrupación"
+    "focusPlaceholder": "ej. adición con reagrupación",
+    "inProgressTitle": "Recurso en curso",
+    "inProgressDesc": "La generación se está ejecutando en el servidor. Puede salir de esta página y volver — su progreso se guarda.",
+    "continueGenerating": "Continuando la generación…",
+    "viewWhenReady": "Aparecerá aquí cuando esté listo.",
+    "failedTitle": "La generación falló",
+    "retry": "Reintentar",
+    "keepWaiting": "Seguir esperando"
   }
 }

@@ -28,11 +28,19 @@ export class Suggestion {
   @Column({ type: 'jsonb', nullable: true })
   details: Record<string, unknown>;
 
-  @Column({ type: 'enum', enum: ['pending', 'accepted', 'modified', 'rejected', 'archived'], default: 'pending' })
+  @Column({ type: 'enum', enum: ['pending', 'generating', 'accepted', 'modified', 'rejected', 'archived', 'failed'], default: 'pending' })
   status: string;
 
   @Column({ type: 'text', nullable: true })
-  modelUsed: string;
+  modelUsed?: string;
+
+  /**
+   * Chunk 12: the auth user that triggered this (background) generation.
+   * Used for ownership checks on the status endpoint. Null for suggestions
+   * created directly via the CRUD endpoint or before auth existed.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  ownerId: string;
 
   @CreateDateColumn()
   createdAt: Date;

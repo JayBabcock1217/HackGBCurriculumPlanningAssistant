@@ -11,6 +11,7 @@ export interface CreateSuggestionDto {
   modelUsed?: string;
   studentId: string;
   curriculumId?: string;
+  ownerId?: string;
 }
 
 export interface UpdateSuggestionDto {
@@ -54,6 +55,66 @@ export class SuggestionService {
       relations: { student: true, curriculum: true, feedback: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /**
+   * Chunk 12: create a placeholder row for a background generation job that
+   * has been started but not yet completed. The generator fills in the content
+   * and flips status to 'pending' when the LLM finishes.
+   */
+  async createPendingJob(params: {
+    studentId: string;
+    curriculumId?: string;
+    ownerId?: string;
+    focus?: string;
+    kind?: string;
+  }): Promise<Suggestion> {
+    const job = this.suggestionRepo.create({
+      type: 'resource' as const,
+      content: '',
+      title: 'Generating…',
+      status: 'generating',
+      details: {
+        generationId: `gen_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        jobType: 'resource_generation',
+        kind: params.kind,
+        focus: params.focus,
+      },
+      student: { id: params.studentId } as any,
+      curriculum: params.curriculumId
+        ? ({ id: params.curriculumId } as any)
+        : undefined,
+      ownerId: params.ownerId,
+    });
+    return this.suggestionRepo.save(job);
+  }
+
+  /** Chunk 12: resolve a background generation job (success or failure). */
+  async resolveJob(
+    id: string,
+    result: {
+      type: string;
+      title: string;
+      content: string;
+      summary?: string;
+      modelUsed?: string;
+      sources?: Array<{ chunkId: string; similarity: number }>;
+      status?: 'pending' | 'failed';
+      error?: string;
+    },
+  ): Promise<Suggestion> {
+    const existing = await this.findOne(id);
+    existing.type = result.type as Suggestion['type'];
+    existing.title = result.title;
+    existing.content = result.content;
+    existing.status = result.status === 'failed' ? 'failed' : 'pending';
+    existing.modelUsed = result.modelUsed;
+    const details = (existing.details as Record<string, unknown>) || {};
+    if (result.summary) details.summary = result.summary;
+    if (result.sources) details.sources = result.sources;
+    if (result.error) details.error = result.error;
+    existing.details = details;
+    return this.suggestionRepo.save(existing);
   }
 
   async findOne(id: string): Promise<Suggestion> {

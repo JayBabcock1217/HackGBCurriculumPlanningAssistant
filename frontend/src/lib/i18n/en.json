@@ -203,6 +203,13 @@
     "newResource": "New Resource",
     "type": "Type",
     "focus": "Focus (optional)",
-    "focusPlaceholder": "e.g. addition with regrouping"
+    "focusPlaceholder": "e.g. addition with regrouping",
+    "inProgressTitle": "Resource in progress",
+    "inProgressDesc": "Generation is running on the server. You can leave this page and come back — your progress is saved.",
+    "continueGenerating": "Continuing to generate…",
+    "viewWhenReady": "It will appear here when it's done.",
+    "failedTitle": "Generation failed",
+    "retry": "Retry",
+    "keepWaiting": "Keep waiting"
   }
 }

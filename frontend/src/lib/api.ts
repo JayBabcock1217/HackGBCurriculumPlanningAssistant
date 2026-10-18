@@ -397,6 +397,34 @@ export const generateSuggestions = (
     body: JSON.stringify(body),
   });
 
+/**
+ * Chunk 12: start a background resource-generation job. Returns immediately
+ * with a jobId; the LLM work continues server-side so the teacher can navigate
+ * away and come back.
+ */
+export const startResourceGeneration = (body: {
+  studentId: string;
+  curriculumId: string;
+  optionCount?: number;
+  focus?: string;
+  language?: string;
+  kind?: string;
+}) =>
+  request<{ jobId: string }>('/api/suggestions/generate/start', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+export interface ResourceJobStatus extends GenerateResult {
+  status: 'generating' | 'pending' | 'failed';
+  jobId: string;
+  error?: string;
+}
+
+/** Chunk 12: poll a background resource-generation job. */
+export const getResourceJobStatus = (jobId: string) =>
+  request<ResourceJobStatus>(`/api/suggestions/generate/status/${jobId}`);
+
 export const updateSuggestionStatus = (
   id: string,
   status: Suggestion['status'],
