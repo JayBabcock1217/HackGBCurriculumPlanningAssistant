@@ -1,3 +1,6 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -12,79 +15,16 @@ import {
   Check,
   Pencil,
   X,
-  Info,
   Trash2,
-  Edit,
+  Loader2,
+  CloudOff,
+  MessageSquare,
 } from 'lucide-react';
-
-const feedback = [
-  {
-    id: '1',
-    action: 'rejected',
-    suggestion: 'Division Concept - Equal Groups',
-    student: 'Sofia Rodriguez',
-    reason: 'Too much text, needs visual approach',
-    comment:
-      'Sofia is still building English proficiency. She needs picture-based instructions and physical manipulatives. Avoid text-heavy materials for her until her reading improves.',
-    date: 'Oct 12, 2025',
-    edited: false,
-  },
-  {
-    id: '2',
-    action: 'modified',
-    suggestion: 'Multiplication Tables - Gamified Drill',
-    student: 'Liam Chen',
-    reason: 'Adjusted difficulty level',
-    comment:
-      'Changed focus from 2-digit multiplication to 5s and 10s patterns. Liam is ready for extension but needs to solidify these patterns first. The card game format worked well though.',
-    date: 'Oct 13, 2025',
-    edited: true,
-  },
-  {
-    id: '3',
-    action: 'accepted',
-    suggestion: 'Word Problems - Visual Story Approach',
-    student: 'Emma Davis',
-    reason: 'Perfect fit for Emma',
-    comment:
-      'The visual story frames were exactly what Emma needed. The large dyslexia-friendly fonts helped a lot. Consider adding a matching activity for kinesthetic learning next time.',
-    date: 'Oct 14, 2025',
-    edited: false,
-  },
-  {
-    id: '4',
-    action: 'accepted',
-    suggestion: 'Fraction Addition - Scaffolded Lesson',
-    student: 'Sofia Rodriguez',
-    reason: 'Good scaffolding approach',
-    comment:
-      'The visual fraction bars and bilingual vocabulary list were great. The hands-on paper activity worked well. Keep this style for Sofia going forward.',
-    date: 'Oct 15, 2025',
-    edited: false,
-  },
-  {
-    id: '5',
-    action: 'modified',
-    suggestion: 'Reading Comprehension - Inference Practice',
-    student: 'Emma Davis',
-    reason: 'Shortened activity length',
-    comment:
-      'Reduced from 30 min to 15 min. Emma loses focus after about 12-15 minutes of reading tasks. The inference questions were good but too many for one session.',
-    date: 'Oct 10, 2025',
-    edited: true,
-  },
-  {
-    id: '6',
-    action: 'rejected',
-    suggestion: 'Multiplication - Timed Drill',
-    student: 'Ava Patel',
-    reason: 'Not suitable for ADHD',
-    comment:
-      'Timed drills are stressful for Ava. She performs much better with self-paced activities. Avoid time pressure for her. Try incorporating movement breaks and choice-based activities instead.',
-    date: 'Oct 8, 2025',
-    edited: false,
-  },
-];
+import {
+  getFeedback,
+  deleteFeedback,
+  type Feedback,
+} from '@/lib/api';
 
 const actionConfig: Record<
   string,
@@ -107,7 +47,47 @@ const actionConfig: Record<
   },
 };
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 export default function FeedbackPage() {
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      const f = await getFeedback();
+      // Newest first
+      f.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setFeedback(f);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load feedback');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function handleDelete(f: Feedback) {
+    if (!confirm('Delete this feedback entry?')) return;
+    try {
+      await deleteFeedback(f.id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
+
   const counts = {
     accepted: feedback.filter((f) => f.action === 'accepted').length,
     modified: feedback.filter((f) => f.action === 'modified').length,
@@ -116,15 +96,32 @@ export default function FeedbackPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Teacher Feedback
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Your feedback guides the AI&apos;s future suggestions. Edit or delete
-          any entry at any time.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Teacher Feedback</h1>
+          <p className="text-sm text-muted-foreground">
+            Your feedback is stored and guides the AI&apos;s future suggestions.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={load}
+          disabled={loading}
+        >
+          {loading ? <Loader2 className="animate-spin" /> : <MessageSquare />}
+          Refresh
+        </Button>
       </div>
+
+      {error && (
+        <Card className="border-destructive/50">
+          <CardContent className="flex items-center gap-3 p-4 text-sm">
+            <CloudOff className="h-5 w-5 text-destructive" />
+            {error}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4">
@@ -171,94 +168,83 @@ export default function FeedbackPage() {
 
       {/* Feedback Timeline */}
       <div className="space-y-3">
-        {feedback.map((f) => {
-          const config = actionConfig[f.action];
-          return (
-            <Card key={f.id}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <Badge
-                      variant={config.variant}
-                      className="gap-1"
-                    >
-                      {config.icon}
-                      {config.label}
-                    </Badge>
+        {loading ? (
+          <div className="py-10 text-center text-muted-foreground">
+            <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+          </div>
+        ) : feedback.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <MessageSquare className="h-10 w-10 text-muted-foreground" />
+              <p className="mt-3 text-sm font-medium">No feedback yet</p>
+              <p className="text-sm text-muted-foreground">
+                Accept, modify, or reject a suggestion to record feedback here.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          feedback.map((f) => {
+            const config = actionConfig[f.action] || actionConfig.accepted;
+            const studentName = f.suggestion?.student
+              ? `${f.suggestion.student.firstName} ${f.suggestion.student.lastName}`
+              : 'Unknown student';
+            return (
+              <Card key={f.id}>
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold">
-                          {f.suggestion}
-                        </p>
-                        {f.edited && (
-                          <Badge variant="secondary" className="text-[10px]">
-                            <Edit className="mr-1 h-2.5 w-2.5" />
-                            Edited
-                          </Badge>
-                        )}
+                        <Badge variant={config.variant}>
+                          {config.icon}
+                          {config.label}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(f.createdAt)}
+                        </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {f.student} · {f.date}
+                      <p className="mt-2 font-medium">
+                        {f.suggestion?.title || 'Untitled suggestion'}
                       </p>
+                      <p className="text-sm text-muted-foreground">{studentName}</p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                    >
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive"
+                      onClick={() => handleDelete(f)}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
 
-                <Separator className="my-3" />
-
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Reason
-                  </p>
-                  <p className="text-sm">{f.reason}</p>
-                </div>
-                <div className="mt-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Notes
-                  </p>
-                  <p className="text-sm text-foreground/80">{f.comment}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+                  {f.reason && (
+                    <p className="mt-3 text-sm">
+                      <span className="font-medium text-muted-foreground">Reason:</span>{' '}
+                      {f.reason}
+                    </p>
+                  )}
+                  {f.teacherComment && (
+                    <div className="mt-2">
+                      <Separator />
+                      <p className="mt-2 text-sm text-foreground/80">{f.teacherComment}</p>
+                    </div>
+                  )}
+                  {f.modifiedContent && (
+                    <div className="mt-2 rounded-md bg-muted/40 p-3">
+                      <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                        Modified version
+                      </p>
+                      <p className="whitespace-pre-line text-sm text-foreground/80">
+                        {f.modifiedContent}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
-
-      {/* Info Box */}
-      <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-950/30">
-        <CardContent className="flex gap-3 p-5">
-          <Info className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-          <div>
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-              How feedback guides suggestions
-            </p>
-            <p className="mt-1 text-sm text-blue-700 dark:text-blue-200 leading-relaxed">
-              Before generating new suggestions, the system searches your past
-              feedback for relevant entries and includes them in the AI&apos;s
-              context. For example, after you rejected the division lesson for
-              Sofia, the AI now knows to prioritize visual and hands-on
-              approaches with minimal text for ELL students. Recent feedback
-              carries more weight than older entries.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
