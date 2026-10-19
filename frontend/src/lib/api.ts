@@ -409,6 +409,7 @@ export const startResourceGeneration = (body: {
   focus?: string;
   language?: string;
   kind?: string;
+  activityType?: string;
 }) =>
   request<{ jobId: string }>('/api/suggestions/generate/start', {
     method: 'POST',
@@ -473,7 +474,7 @@ export const getProviders = () => request<ProviderInfo[]>('/api/llm/providers');
 
 // ---------- LLM Settings (runtime configuration of the AI server) ----------
 
-export type LlmProviderName = 'ollama' | 'openai' | 'anthropic';
+export type LlmProviderName = 'lm-manager' | 'ollama' | 'openai' | 'anthropic';
 
 export interface LlmSettings {
   chatProvider: LlmProviderName;
@@ -485,6 +486,11 @@ export interface LlmSettings {
     chatModel: string;
     embeddingModel: string;
     baseURL: string;
+  };
+  lmManager: {
+    baseURL: string;
+    chatModel: string;
+    apiKeyMasked: string | null;
   };
   anthropic: {
     apiKey: string | null;
@@ -501,8 +507,20 @@ export type LlmSettingsUpdate = Partial<
 > & {
   ollama?: Partial<LlmSettings['ollama']>;
   openai?: Partial<Omit<LlmSettings['openai'], 'apiKey' | 'apiKeyMasked'> & { apiKey?: string }>;
+  lmManager?: Partial<Omit<LlmSettings['lmManager'], 'apiKeyMasked'> & { apiKey?: string }>;
   anthropic?: Partial<Omit<LlmSettings['anthropic'], 'apiKey' | 'apiKeyMasked'> & { apiKey?: string }>;
 };
+
+// ---------- Lesson / activity types (Resources generator) ----------
+
+export interface ActivityType {
+  id: string;
+  label: string;
+  hint: string;
+}
+
+export const getActivityTypes = () =>
+  request<ActivityType[]>('/api/suggestions/generate/activity-types');
 
 export interface LlmTestResult {
   chat: { ok: boolean; provider: string; model: string; message?: string };

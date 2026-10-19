@@ -37,6 +37,7 @@ import { AppShell } from '@/components/app-shell';
 import { useI18n } from '@/lib/i18n';
 
 const PROVIDERS: Array<{ value: LlmProviderName; label: string; hint: string }> = [
+  { value: 'lm-manager', label: 'LM Manager', hint: 'Local llm-gpu-manager gateway (default port 12340) — chat only' },
   { value: 'ollama', label: 'Ollama', hint: 'Local model server (default port 11434)' },
   { value: 'openai', label: 'OpenAI-compatible', hint: 'LM Studio, llama.cpp, vLLM, Ollama /v1, or real OpenAI' },
   { value: 'anthropic', label: 'Anthropic', hint: 'Claude (chat only; embeddings need Ollama/OpenAI)' },
@@ -115,10 +116,13 @@ export default function SettingsPage() {
   const [modelsError, setModelsError] = useState<string | null>(null);
 
   // Form state (strings so inputs work freely before save).
-  const [chatProvider, setChatProvider] = useState<LlmProviderName>('ollama');
+  const [chatProvider, setChatProvider] = useState<LlmProviderName>('lm-manager');
   const [embeddingProvider, setEmbeddingProvider] = useState<LlmProviderName>('ollama');
   const [defaultChatModel, setDefaultChatModel] = useState('');
   const [defaultEmbeddingModel, setDefaultEmbeddingModel] = useState('');
+  const [lmManagerUrl, setLmManagerUrl] = useState('');
+  const [lmManagerChatModel, setLmManagerChatModel] = useState('');
+  const [lmManagerKey, setLmManagerKey] = useState('');
   const [ollamaUrl, setOllamaUrl] = useState('');
   const [ollamaChatModel, setOllamaChatModel] = useState('');
   const [ollamaEmbedModel, setOllamaEmbedModel] = useState('');
@@ -140,6 +144,9 @@ export default function SettingsPage() {
       setEmbeddingProvider(s.embeddingProvider);
       setDefaultChatModel(s.defaultChatModel);
       setDefaultEmbeddingModel(s.defaultEmbeddingModel);
+      setLmManagerUrl(s.lmManager.baseURL);
+      setLmManagerChatModel(s.lmManager.chatModel);
+      setLmManagerKey(s.lmManager.apiKeyMasked ?? '');
       setOllamaUrl(s.ollama.url);
       setOllamaChatModel(s.ollama.chatModel);
       setOllamaEmbedModel(s.ollama.embeddingModel);
@@ -173,6 +180,12 @@ export default function SettingsPage() {
         embeddingProvider,
         defaultChatModel,
         defaultEmbeddingModel,
+        lmManager: {
+          baseURL: lmManagerUrl,
+          chatModel: lmManagerChatModel,
+          // Send the key only if the user typed something new (not the masked value).
+          apiKey: lmManagerKey && !lmManagerKey.startsWith('****') ? lmManagerKey : undefined,
+        },
         ollama: {
           url: ollamaUrl,
           chatModel: ollamaChatModel,
@@ -279,7 +292,8 @@ export default function SettingsPage() {
               {t('nav.settings')}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Configure the LLM server the app uses for chat and embeddings.
+              Configure the AI server. Chat defaults to your local LM Manager;
+              embeddings use the bundled Ollama. No setup needed for either.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -372,13 +386,13 @@ export default function SettingsPage() {
                       ))}
                     </select>
                   </Labeled>
-                  <Labeled label="Embedding provider" hint="Used to embed curriculum chunks and feedback.">
+                  <Labeled label="Embedding provider" hint="Used to embed curriculum chunks and feedback. LM Manager has no embeddings endpoint.">
                     <select
                       value={embeddingProvider}
                       onChange={(e) => setEmbeddingProvider(e.target.value as LlmProviderName)}
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
-                      {PROVIDERS.filter((p) => p.value !== 'anthropic').map((p) => (
+                      {PROVIDERS.filter((p) => p.value !== 'anthropic' && p.value !== 'lm-manager').map((p) => (
                         <option key={p.value} value={p.value}>
                           {p.label} — {p.hint}
                         </option>
@@ -401,6 +415,61 @@ export default function SettingsPage() {
                       />
                     </Labeled>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* LM Manager server (default chat provider) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-primary" />
+                    LM Manager Server
+                  </CardTitle>
+                  <CardDescription>
+                    Your local llm-gpu-manager gateway. It serves chat only —
+                    embeddings use the Ollama server below.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Labeled
+                    label="Server URL"
+                    hint='Use http://local-host:12340/v1 to reach LM Manager on the machine running the app. For a Tailscale peer, use its 100.x.y.z IP.'
+                  >
+                    <Input
+                      value={lmManagerUrl}
+                      onChange={(e) => setLmManagerUrl(e.target.value)}
+                      placeholder="http://local-host:12340/v1"
+                    />
+                  </Labeled>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Labeled
+                      label="Chat model"
+                      hint="Pick from the dropdown, or type a model alias. Leave blank to choose later."
+                    >
+                      <ModelField
+                        value={lmManagerChatModel}
+                        onChange={setLmManagerChatModel}
+                        listId="lm-manager-chat-models"
+                        options={chatProvider === 'lm-manager' ? chatModels : []}
+                        placeholder="Qwen3.8-27B-UD-Q4_K_M"
+                      />
+                    </Labeled>
+                    <Labeled
+                      label="API key"
+                      hint="LM Manager ignores it; some gateways require any non-empty string."
+                    >
+                      <Input
+                        type="password"
+                        value={lmManagerKey}
+                        onChange={(e) => setLmManagerKey(e.target.value)}
+                        placeholder="lm-manager"
+                      />
+                    </Labeled>
+                  </div>
+                  <p className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+                    Tip: click <span className="font-medium">Chat models</span> above to list
+                    the models LM Manager currently has running, then select one.
+                  </p>
                 </CardContent>
               </Card>
 
@@ -489,7 +558,7 @@ export default function SettingsPage() {
                         value={openaiChatModel}
                         onChange={setOpenaiChatModel}
                         listId="openai-chat-models"
-                        options={chatProvider === 'openai' ? chatModels : []}
+                        options={chatProvider === 'openai' || chatProvider === 'lm-manager' ? chatModels : []}
                         placeholder="llama-3.1-8b"
                       />
                     </Labeled>

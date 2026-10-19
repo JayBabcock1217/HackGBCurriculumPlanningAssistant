@@ -27,21 +27,14 @@ import {
   getResourceJobStatus,
   getStudents,
   getCurricula,
+  getActivityTypes,
   type Student,
   type Curriculum,
   type ResourceJobStatus,
+  type ActivityType,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { AppShell } from '@/components/app-shell';
-
-type ResourceKind = 'worksheet' | 'reading' | 'practice';
-
-const KIND_FOCUS: Record<ResourceKind, string> = {
-  worksheet:
-    'a printable worksheet of targeted practice problems with an answer key',
-  reading: 'a short leveled reading passage followed by comprehension questions',
-  practice: 'a set of graded practice problems progressing from easy to hard',
-};
 
 /** localStorage key for the in-flight job. Survives page navigation and reloads. */
 const JOB_KEY = 'hackgb-resource-job';
@@ -49,7 +42,7 @@ const JOB_KEY = 'hackgb-resource-job';
 interface StoredJob {
   jobId: string;
   startedAt: number;
-  kind: ResourceKind;
+  kind: string;
   focus: string;
 }
 
@@ -99,9 +92,10 @@ export default function ResourcesPage() {
   const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [curricula, setCurricula] = useState<Curriculum[]>([]);
+  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [studentId, setStudentId] = useState('');
   const [curriculumId, setCurriculumId] = useState('');
-  const [kind, setKind] = useState<ResourceKind>('worksheet');
+  const [activityTypeId, setActivityTypeId] = useState('guided_lesson');
   const [focus, setFocus] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -117,11 +111,13 @@ export default function ResourcesPage() {
 
   const load = useCallback(async () => {
     try {
-      const [s, c] = await Promise.all([getStudents(), getCurricula()]);
+      const [s, c, a] = await Promise.all([getStudents(), getCurricula(), getActivityTypes()]);
       setStudents(s);
       setCurricula(c);
+      setActivityTypes(a);
       if (s.length > 0) setStudentId(s[0].id);
       if (c.length > 0) setCurriculumId(c[0].id);
+      if (a.length > 0) setActivityTypeId(a[0].id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -209,14 +205,16 @@ export default function ResourcesPage() {
         studentId,
         curriculumId,
         optionCount: 1,
-        // Chunk 12: steer the generator toward a single, specific resource type.
-        focus: `${KIND_FOCUS[kind]}${focus ? ` — focus: ${focus}` : ''}`,
-        kind,
+        focus: focus || undefined,
+        kind: activityTypeId,
+        // The activity type drives the prompt on the backend — it produces one
+        // complete, curriculum-grounded artifact of that type for this student.
+        activityType: activityTypeId,
       });
       const storedJob: StoredJob = {
         jobId,
         startedAt: Date.now(),
-        kind,
+        kind: activityTypeId,
         focus,
       };
       saveStoredJob(storedJob);
@@ -249,11 +247,7 @@ export default function ResourcesPage() {
   }
 
   const kindLabel =
-    kind === 'worksheet'
-      ? t('resources.worksheet')
-      : kind === 'reading'
-        ? t('resources.reading')
-        : t('resources.practice');
+    t(`resources.activityTypes.${activityTypeId}`) || activityTypeId;
 
   // Show the in-progress card when a job is in flight and not yet finished.
   const inProgress = !!job && !result;
@@ -316,7 +310,7 @@ export default function ResourcesPage() {
                 {t('resources.generate')}
               </CardTitle>
               <CardDescription>
-                {t('resources.pickStudent')}
+                {t('resources.subtitle')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -329,7 +323,7 @@ export default function ResourcesPage() {
                   {t('resources.noStudent')}
                 </p>
               ) : (
-                <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <form onSubmit={handleGenerate} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                   <div className="space-y-1">
                     <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
                       <Users className="h-3 w-3" /> {t('suggestions.student')}
@@ -366,18 +360,25 @@ export default function ResourcesPage() {
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      {t('resources.type')}
+                    <label className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <BookOpen className="h-3 w-3" /> {t('resources.lessonType')}
                     </label>
                     <select
-                      value={kind}
-                      onChange={(e) => setKind(e.target.value as ResourceKind)}
+                      value={activityTypeId}
+                      onChange={(e) => setActivityTypeId(e.target.value)}
                       className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                     >
-                      <option value="worksheet">{t('resources.worksheet')}</option>
-                      <option value="reading">{t('resources.reading')}</option>
-                      <option value="practice">{t('resources.practice')}</option>
+                      {activityTypes.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {t(`resources.activityTypes.${a.id}`) || a.label}
+                        </option>
+                      ))}
                     </select>
+                    {activityTypes.find((a) => a.id === activityTypeId) && (
+                      <span className="block text-xs text-muted-foreground">
+                        {activityTypes.find((a) => a.id === activityTypeId)!.hint}
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">
@@ -389,10 +390,10 @@ export default function ResourcesPage() {
                       placeholder={t('resources.focusPlaceholder')}
                     />
                   </div>
-                  <div className="sm:col-span-2 lg:col-span-4">
+                  <div className="sm:col-span-2 lg:col-span-5">
                     <Button
                       type="submit"
-                      disabled={!studentId || !curriculumId}
+                      disabled={!studentId || !curriculumId || activityTypes.length === 0}
                     >
                       <FileInput /> {t('resources.generate')}
                     </Button>

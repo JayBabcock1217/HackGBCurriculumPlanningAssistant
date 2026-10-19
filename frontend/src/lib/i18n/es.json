@@ -191,7 +191,7 @@
   },
   "resources": {
     "title": "Recursos",
-    "subtitle": "Genere hojas de trabajo, lecturas y ejercicios de práctica bajo demanda.",
+    "subtitle": "Elija un estudiante, un currículo y un tipo de lección/actividad — la app genera una actividad completa basada en el currículo.",
     "worksheet": "Hoja de trabajo",
     "reading": "Lectura",
     "practice": "Ejercicios de práctica",
@@ -211,6 +211,18 @@
     "viewWhenReady": "Aparecerá aquí cuando esté listo.",
     "failedTitle": "La generación falló",
     "retry": "Reintentar",
-    "keepWaiting": "Seguir esperando"
+    "keepWaiting": "Seguir esperando",
+    "lessonType": "Tipo de lección / actividad",
+    "lessonTypeHint": "Qué tipo de material para el aula generar",
+    "activityTypes": {
+      "guided_lesson": "Lección guiada",
+      "worksheet": "Hoja de trabajo",
+      "reading": "Lectura por nivel",
+      "practice": "Ejercicios de práctica",
+      "assessment": "Evaluación corta",
+      "project": "Proyecto / Actividad",
+      "game": "Juego",
+      "intervention": "Intervención"
+    }
   }
 }

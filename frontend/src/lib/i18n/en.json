@@ -191,7 +191,7 @@
   },
   "resources": {
     "title": "Resources",
-    "subtitle": "Generate worksheets, readings, and practice problems on demand.",
+    "subtitle": "Pick a student, a curriculum, and a lesson/activity type — the app generates a complete, curriculum-grounded activity.",
     "worksheet": "Worksheet",
     "reading": "Reading",
     "practice": "Practice Problems",
@@ -203,7 +203,7 @@
     "download": "Download",
     "newResource": "New Resource",
     "type": "Type",
-    "focus": "Focus (optional)",
+    "focus": "Topic focus (optional)",
     "focusPlaceholder": "e.g. addition with regrouping",
     "inProgressTitle": "Resource in progress",
     "inProgressDesc": "Generation is running on the server. You can leave this page and come back — your progress is saved.",
@@ -211,6 +211,18 @@
     "viewWhenReady": "It will appear here when it's done.",
     "failedTitle": "Generation failed",
     "retry": "Retry",
-    "keepWaiting": "Keep waiting"
+    "keepWaiting": "Keep waiting",
+    "lessonType": "Lesson / activity type",
+    "lessonTypeHint": "What kind of classroom artifact to generate",
+    "activityTypes": {
+      "guided_lesson": "Guided Lesson",
+      "worksheet": "Worksheet",
+      "reading": "Leveled Reading",
+      "practice": "Practice Problems",
+      "assessment": "Short Assessment",
+      "project": "Project / Activity",
+      "game": "Game",
+      "intervention": "Intervention"
+    }
   }
 }
