@@ -1,0 +1,34 @@
+# HackGB backend — user-level systemd service.
+#
+# Runs the NestJS backend as YOUR user (not root), starts it on boot, and
+# restarts it if it crashes. Installed per-user, so it needs no root at runtime.
+#
+# Install:   ./scripts/install-backend-service.sh
+# Status:    systemctl --user status hackgb-backend
+# Logs:      journalctl --user -u hackgb-backend -f
+# Stop:      systemctl --user stop hackgb-backend
+# Uninstall: systemctl --user disable --now hackgb-backend
+#            rm ~/.config/systemd/user/hackgb-backend.service
+#            systemctl --user daemon-reload
+#
+# Note: __REPO__ and __NODE__ are replaced by scripts/install-backend-service.sh
+# with your actual absolute paths.
+
+[Unit]
+Description=HackGB Curriculum Planning Assistant backend (NestJS)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__REPO__
+ExecStart=__NODE__ backend/dist/main.js
+# Restart if it crashes; back off so a flapping DB doesn't hammer the CPU.
+Restart=on-failure
+RestartSec=5
+# The app loads backend/.env itself (relative to main.js), so no EnvironmentFile
+# is required. Set any overrides here if you want env to win over the file.
+# Environment="EXTRA_VAR=value"
+
+[Install]
+WantedBy=default.target
