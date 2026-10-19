@@ -133,33 +133,51 @@ const STUDENTS = [
   },
 ];
 
-// 2 realistic curricula with indexed chunks.
+// 3 realistic, standards-aligned curricula with detailed, legitimate lesson
+// chunks. These are real (placeholder-but-legit) content the Resources
+// generator grounds its activities in — each chunk names concrete skills,
+// examples, and materials so generated worksheets/lessons are classroom-ready.
 const CURRICULA = [
   {
-    title: '3rd Grade Math - Unit 1: Addition & Subtraction',
+    title: '3rd Grade Math - Unit 1: Addition & Subtraction to 99',
     subject: 'Math', gradeLevel: '3rd', fileType: 'pdf',
     fileName: 'grade3-math-unit1-addition-subtraction.pdf',
-    description: 'Two-digit addition and subtraction with and without regrouping, place-value strategies, and word problems.',
+    description: 'Two-digit addition and subtraction with and without regrouping, place-value strategies, estimation, and word problems.',
     chunks: [
-      'Lesson 1.1: Introduction to two-digit addition. Students add numbers up to 99 using place-value strategies. Emphasis on aligning tens and ones columns before adding.',
-      'Lesson 1.2: Adding with regrouping. When the ones column sums to 10 or more, students regroup 10 ones as 1 ten. Uses base-ten blocks to model the trade before recording it in standard form.',
-      'Lesson 1.3: Subtracting without regrouping. Students subtract two-digit numbers where the ones digit of the subtrahend is smaller than the minuend, reinforcing place value.',
-      'Lesson 1.4: Subtracting with regrouping. Students borrow 1 ten (10 ones) from the tens column. Concrete-then-abstract approach with manipulatives, drawings, then equations.',
-      'Lesson 1.5: Word problems combining addition and subtraction. Students read a short scenario, decide whether to add or subtract, write the number sentence, and solve. Includes check-your-work strategies.',
-      'Assessment: Unit 1 quiz covering two-digit addition and subtraction with and without regrouping, plus 2 multi-step word problems.',
+      'Lesson 1.1: Two-digit addition without regrouping. Students add numbers up to 99 by aligning tens and ones columns and adding within each column. Example: 24 + 35 = 59 (2 tens + 3 tens = 5 tens; 4 ones + 5 ones = 9 ones). Skills: column alignment, adding within a place value. Materials: grid paper, number cards.',
+      'Lesson 1.2: Two-digit addition with regrouping. When the ones column sums to 10 or more, students regroup 10 ones as 1 ten. Example: 27 + 45 = 72 (7 ones + 5 ones = 12 ones; trade 10 ones for 1 ten, so 2 tens + 4 tens + 1 ten = 7 tens, 2 ones left). Concrete-then-abstract with base-ten blocks. Skills: regrouping/trading, carrying.',
+      'Lesson 1.3: Two-digit subtraction without regrouping. Students subtract where the ones digit of the subtrahend is smaller than the minuend. Example: 86 - 43 = 43 (8 tens - 4 tens = 4 tens; 6 ones - 3 ones = 3 ones). Reinforces place-value meaning of each digit.',
+      'Lesson 1.4: Two-digit subtraction with regrouping. Students borrow 1 ten (10 ones) from the tens column when the ones digit is not enough. Example: 83 - 47 = 36 (3 ones - 7 ones is not enough; borrow 1 ten to make 13 ones, then 13 - 7 = 6, and 7 tens - 4 tens = 3 tens). Materials: base-ten blocks, drawings.',
+      'Lesson 1.5: Estimating sums and differences. Students round each number to the nearest ten before computing to estimate a reasonable answer. Example: 48 + 37 ≈ 50 + 40 = 90, so the exact answer should be close to 90. Skills: rounding, checking reasonableness.',
+      'Lesson 1.6: Two-digit word problems. Students read a short scenario, decide whether to add or subtract, write the number sentence, and solve. Example: "A library has 56 picture books and 28 chapter books. How many books in all?" (56 + 28 = 84). Includes a check-your-work step using the inverse operation.',
+      'Assessment 1.1: Unit 1 quiz — 10 computation problems (addition and subtraction, with and without regrouping) and 2 multi-step word problems. Success criterion: 80% or higher with at least one regrouping problem correct.',
     ],
   },
   {
     title: '3rd Grade Reading - Unit 1: Main Idea & Supporting Details',
     subject: 'Reading', gradeLevel: '3rd', fileType: 'pdf',
     fileName: 'grade3-reading-unit1-main-idea.pdf',
-    description: 'Identifying the main idea of a text and locating supporting details; inferring from context clues.',
+    description: 'Identifying the main idea of a text, locating supporting details, and inferring word meaning from context clues.',
     chunks: [
-      'Lesson 1.1: What is the main idea? The main idea is the most important point an author wants to communicate. Students practice finding the topic sentence in a paragraph.',
-      'Lesson 1.2: Supporting details. Details are facts, examples, and descriptions that support the main idea. Students underline details and explain how each one backs up the main point.',
-      'Lesson 1.3: Combining main idea and details. Students write the main idea in one sentence and list two supporting details, then explain the connection in their own words.',
-      'Lesson 1.4: Inferring from context clues. When a new word appears, students use surrounding words and their own knowledge to guess its meaning, then verify with a dictionary.',
-      'Assessment: Students read a short informational passage and identify the main idea, list supporting details, and infer the meaning of one unfamiliar word.',
+      'Lesson 1.1: What is the main idea? The main idea is the single most important point an author wants to communicate. Students practice finding the topic sentence in a paragraph and restating the main idea in their own words. Example text: a 4-sentence paragraph about why bees are important to gardens. Skills: identifying the topic sentence, summarizing in one sentence.',
+      'Lesson 1.2: Supporting details. Details are facts, examples, and descriptions that support the main idea. Students underline 2-3 details in a paragraph and explain, for each, how it backs up the main point. Skills: distinguishing main idea from details, citing evidence.',
+      'Lesson 1.3: Main idea + details graphic organizer. Students write the main idea in one sentence, list two supporting details, then explain the connection in their own words using a T-chart. Materials: organizer handout, short informational passages (150 words or fewer).',
+      'Lesson 1.4: Inferring word meaning from context clues. When an unfamiliar word appears, students use surrounding words and prior knowledge to guess its meaning, then verify with a dictionary. Example: "The hiker trudged through the deep snow" — trudge means to walk with heavy, effortful steps. Skills: context clues (definition, restatement, example, contrast).',
+      'Assessment 1.1: Students read a short informational passage, identify the main idea, list two supporting details with page/line references, and infer the meaning of one unfamiliar word with evidence from the text.',
+    ],
+  },
+  {
+    title: '3rd Grade Science - Unit 1: The Water Cycle',
+    subject: 'Science', gradeLevel: '3rd', fileType: 'pdf',
+    fileName: 'grade3-science-unit1-water-cycle.pdf',
+    description: 'Evaporation, condensation, precipitation, and collection; how water moves through Earth\'s system; observation and modeling skills.',
+    chunks: [
+      'Lesson 1.1: Where is the water? Students observe that water is found in oceans, lakes, rivers, clouds, and in the air as water vapor. Discussion: most of Earth\'s water is in the oceans. Skills: observation, classification of water sources. Materials: world map, pictures of water sources.',
+      'Lesson 1.2: Evaporation. Heat from the Sun turns liquid water into water vapor (a gas) that rises into the air. Example: a puddle disappears on a sunny day. Students do a simple demo: place a small dish of water in the sun and measure it over time. Skills: describing a state change (liquid to gas).',
+      'Lesson 1.3: Condensation. As water vapor rises and cools, it turns back into tiny liquid droplets that form clouds. Example: water droplets on the outside of a cold glass. Demo: ice in a clear glass shows condensation on the outside. Skills: describing a state change (gas to liquid), linking cause (cooling) to effect (clouds).',
+      'Lesson 1.4: Precipitation. When cloud droplets grow heavy, they fall as rain, snow, sleet, or hail. Students sort pictures of different precipitation types and match each to a weather condition. Skills: classification, vocabulary (rain, snow, sleet, hail).',
+      'Lesson 1.5: Collection and the cycle repeats. Precipitation collects in oceans, lakes, and rivers, and some soaks into the ground. The water is heated again and the cycle starts over — it is a continuous loop. Skills: sequencing the four stages in order, drawing a labeled diagram.',
+      'Assessment 1.1: Students label a blank water-cycle diagram with the four stages (evaporation, condensation, precipitation, collection), write one sentence for each stage, and answer a short scenario question (e.g., "After a hot afternoon, a puddle forms in a tire track overnight. Explain what happened using the words evaporation and condensation."). Success criterion: correct labels + at least 3 of 4 stage sentences accurate.',
     ],
   },
 ];
@@ -238,6 +256,18 @@ const SUGGESTION_SEEDS = [
     summary: 'Ben leads a small-group relay where the team solves regrouping problems at stations.',
     content:
       'OBJECTIVES: Ben will apply two-digit addition with regrouping in a collaborative, game-based setting and model problem-solving for peers.\n\nMATERIALS: 4 station cards, timer, team score sheet.\n\nPROCEDURE:\n1. Split into 2 teams of 3; Ben captains one team.\n2. Each station has 1 regrouping problem; teams rotate every 2 minutes.\n3. Ben is responsible for explaining the trade to his team at each station.\n4. Debrief: which strategy was fastest?\n\nDIFFERENTIATION: Add a 3-digit problem at the last station as a challenge.\n\nASSESSMENT: Team accuracy + Ben\'s verbal explanation quality.',
+    status: 'pending',
+    feedback: null,
+  },
+  {
+    // For Ava — pending, science (shows the new science curriculum in the mix)
+    studentIdx: 0,
+    curriculumIdx: 2,
+    type: 'activity',
+    title: 'Water Cycle in a Bag (Hands-On Modeling)',
+    summary: 'Ava builds a sealed-bag water cycle model and labels the four stages.',
+    content:
+      'OBJECTIVES: Ava will model the water cycle by observing evaporation and condensation in a sealed bag and label all four stages.\n\nMATERIALS: clear plastic bag, water, marker, tape, sunny windowsill.\n\nPROCEDURE:\n1. Add 2 cm of water to the bottom of the bag and seal it.\n2. Tape it to a sunny window and observe over a day.\n3. Ava draws and labels the four stages as they appear (evaporation, condensation, precipitation, collection).\n4. She writes one sentence for each stage.\n\nDIFFERENTIATION: As a stretch, Ava predicts where the "clouds" will form first and explains why.\n\nASSESSMENT: Bag model shows all four stages labeled + 4 accurate stage sentences.',
     status: 'pending',
     feedback: null,
   },
@@ -337,7 +367,96 @@ async function main() {
   console.log(`  ${studentIds.length} students created.`);
 
   console.log('Creating curricula + chunks…');
+
+  /**
+   * Embed a chunk's text for pgvector similarity search. Tries, in order:
+   *   1. Ollama on the Docker host (http://local-host:11434 = host.docker.internal
+   *      inside the backend container; 127.0.0.1 when run natively)
+   *   2. Ollama on the local loopback
+   * If neither is reachable, returns null and the chunk is stored with a NULL
+   * embedding (vector search finds nothing for that chunk; the app still works,
+   * and the teacher can re-embed from Settings → AI once Ollama is available).
+   */
+  async function embedText(text) {
+    const host = process.env.SEED_EMBED_HOST || 'local-host';
+    const model = process.env.SEED_EMBED_MODEL || 'nomic-embed-text';
+    // Try, in order: the configured host, the Docker host, the bundled Ollama
+    // container (compose network), and local loopback (native runs).
+    for (const h of [host, '127.0.0.1', 'ollama']) {
+      try {
+        const res = await fetch(`http://${h}:11434/api/embed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, input: text }),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const vec = data?.embeddings?.[0];
+        if (Array.isArray(vec) && vec.length) return `[${vec.join(',')}]`;
+      } catch {
+        // try the next host
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Re-embed all curricula through the backend's RAG re-embed endpoint. Used
+   * when the seed couldn't reach an Ollama directly. Logs in as the demo
+   * teacher (the seed's owner) so the auth guard passes, then calls
+   * POST /api/rag/reembed for each curriculum. The backend's gateway points at
+   * the bundled Ollama (compose network), which is reachable from inside the
+   * backend container even when host networking is blocked.
+   */
+  async function reembedViaBackend(ids) {
+    const port = process.env.BACKEND_PORT || process.env.PORT || '3001';
+    const base = `http://127.0.0.1:${port}/api`;
+    let token = null;
+    try {
+      const login = await fetch(`${base}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: DEMO_TEACHER.email, password: DEMO_TEACHER.password }),
+      });
+      if (login.ok) {
+        token = (await login.json()).accessToken;
+      }
+    } catch {
+      /* fall through */
+    }
+    if (!token) {
+      console.warn(
+        '  Could not reach the backend to re-embed. Chunks have no embeddings; ' +
+          'run "Settings → AI" or re-run this seed once Ollama is reachable.',
+      );
+      return;
+    }
+    let done = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`${base}/rag/reembed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ curriculumId: id }),
+        });
+        if (res.ok) {
+          const r = await res.json();
+          console.log(`  Re-embedded curriculum ${id.slice(0, 8)}… (${r.chunksReembedded} chunks, ${r.model})`);
+          done++;
+        } else {
+          console.warn(`  Re-embed failed for ${id.slice(0, 8)}… (HTTP ${res.status})`);
+        }
+      } catch (e) {
+        console.warn(`  Re-embed error for ${id.slice(0, 8)}…: ${e.message}`);
+      }
+    }
+    if (done > 0) {
+      console.log(`  Re-embedded ${done}/${ids.length} curriculum(s) via the backend.`);
+    }
+  }
+
   const curriculumIds = [];
+  let embedOk = 0;
   for (const c of CURRICULA) {
     const curRes = await client.query(
       `INSERT INTO curricula
@@ -347,15 +466,35 @@ async function main() {
     );
     const curId = curRes.rows[0].id;
     curriculumIds.push(curId);
-    // Insert chunks with NULL embeddings (no vector search until re-embedded).
+    // Insert chunks, embedding each one live so RAG retrieval works immediately.
     for (let i = 0; i < c.chunks.length; i++) {
+      const embedding = await embedText(c.chunks[i]);
+      if (embedding) embedOk++;
       await client.query(
         `INSERT INTO curriculum_chunks (content, "chunkIndex", "tokenCount", embedding, metadata, "curriculumId")
-         VALUES ($1,$2,$3,NULL,$4,$5)`,
-        [c.chunks[i], i, Math.ceil(c.chunks[i].split(/\s+/).length), JSON.stringify({ section: `Lesson ${i + 1}` }), curId],
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          c.chunks[i],
+          i,
+          Math.ceil(c.chunks[i].split(/\s+/).length),
+          embedding,
+          JSON.stringify({ section: `Lesson ${i + 1}` }),
+          curId,
+        ],
       );
     }
     console.log(`  ${c.title} (${c.chunks.length} chunks)`);
+  }
+  if (embedOk === 0) {
+    // The seed ran inside the backend container and couldn't reach an Ollama
+    // directly (host firewall / bridge NAT). Self-heal: re-embed every
+    // curriculum through the backend's own RAG re-embed endpoint, which uses
+    // the gateway's embedding provider (the bundled Ollama over the compose
+    // network) — a path that works even when host networking is blocked.
+    console.log('  Direct embedding unavailable — re-embedding via the backend RAG endpoint…');
+    await reembedViaBackend(curriculumIds);
+  } else {
+    console.log(`  Embedded ${embedOk} chunk(s) for vector search.`);
   }
 
   console.log('Creating progress entries…');

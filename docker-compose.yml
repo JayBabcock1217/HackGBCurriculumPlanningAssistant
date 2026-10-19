@@ -69,6 +69,8 @@ services:
       MINIO_PORT: "9000"
       MINIO_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-hackgb}
       MINIO_SECRET_KEY: ${RUSTFS_SECRET_KEY:-hackgb_dev_password}
+      # Ollama container for embeddings (LM Manager has no /embeddings). The
+      # backend reaches it by container name over the compose network.
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       PORT: "3001"
       # Chunk 11: JWT signing secret. Dev fallback; set AUTH_JWT_SECRET in .env
@@ -76,19 +78,24 @@ services:
       AUTH_JWT_SECRET: ${AUTH_JWT_SECRET:-hackgb-dev-jwt-secret-change-in-prod}
 
       # ---- LLM Gateway (see .env.example "LLM" section) ----
-      # Forward every LLM var into the container so you can point the app at a
-      # model server running on your HOST machine (Ollama, LM Studio, llama.cpp,
-      # vLLM, etc.). Use the special host `local-host` in the URL to mean "the
-      # machine running the app" — it resolves to host.docker.internal inside
-      # the container and to 127.0.0.1 when you run the backend natively.
-      # Examples:
-      #   OLLAMA_URL=http://local-host:11434  LLM_PROVIDER=ollama
-      #   OPENAI_BASE_URL=http://local-host:1234/v1  LLM_PROVIDER=openai
-      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      # Chat defaults to your local LM Manager server (llm-gpu-manager), which
+      # is OpenAI-compatible and runs on the Docker host. `local-host` in the
+      # URL resolves to host.docker.internal inside the container (see
+      # extra_hosts below), so the container reaches the host's loopback.
+      # Embeddings default to the bundled Ollama container (LM Manager does not
+      # expose an embeddings endpoint).
+      # Examples (.env overrides):
+      #   LM_MANAGER_URL=http://local-host:12340/v1   LLM_PROVIDER=lm-manager
+      #   OLLAMA_URL=http://local-host:11434           LLM_EMBEDDING_PROVIDER=ollama
+      #   OPENAI_BASE_URL=http://local-host:1234/v1    LLM_PROVIDER=openai
+      LLM_PROVIDER: ${LLM_PROVIDER:-lm-manager}
       LLM_CHAT_PROVIDER: ${LLM_CHAT_PROVIDER:-}
-      LLM_EMBEDDING_PROVIDER: ${LLM_EMBEDDING_PROVIDER:-}
+      LLM_EMBEDDING_PROVIDER: ${LLM_EMBEDDING_PROVIDER:-ollama}
       LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
       LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-}
+      LM_MANAGER_URL: ${LM_MANAGER_URL:-http://local-host:12340/v1}
+      LM_MANAGER_CHAT_MODEL: ${LM_MANAGER_CHAT_MODEL:-}
+      LM_MANAGER_API_KEY: ${LM_MANAGER_API_KEY:-lm-manager}
       OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-llama3.2:1b}
       OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -98,14 +105,16 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
       ANTHROPIC_CHAT_MODEL: ${ANTHROPIC_CHAT_MODEL:-claude-sonnet-4-20250514}
-    # host.docker.internal -> the Docker host (172.17.0.1). Needed on Linux;
-    # on macOS/Windows Docker Desktop it resolves to the host automatically.
+    # host.docker.internal -> the Docker host. Needed on Linux; on
+    # macOS/Windows Docker Desktop it resolves to the host automatically. This
+    # is what lets the backend reach a model server (LM Manager, Ollama) running
+    # on the machine that runs the app via http://local-host:PORT.
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
       # Host port is allocated dynamically by scripts/start.sh (first free in
       # 3100-3199) and passed in as BACKEND_PORT. The container always listens
-      # on 3001 internally (PORT below).
+      # on 3001 internally (PORT above).
       - "${BACKEND_PORT:-3100}:3001"
     depends_on:
       postgres:

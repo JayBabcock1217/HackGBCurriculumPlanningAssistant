@@ -78,10 +78,26 @@ else
   warn "Skipping build (--no-build). Running existing images."
 fi
 
+# 2b) If the default chat provider is LM Manager (on the Docker host) but the
+#     container's bridge network can't reach it (some hosts' firewalls block
+#     container->host NAT), fall back to the bundled Ollama container for chat
+#     so the app is fully functional out of the box. Embeddings already use the
+#     bundled Ollama. Set LLM_CHAT_PROVIDER / LLM_PROVIDER in .env to override
+#     this automatically.
+if [ -z "${LLM_CHAT_PROVIDER:-}" ] && [ -z "${LLM_PROVIDER:-}" ]; then
+  if ! docker run --rm alpine:3.20 \
+       wget -qO- -T 4 http://host.docker.internal:12340/health >/dev/null 2>&1; then
+    note "LM Manager not reachable from the container bridge (host firewall)."
+    note "Falling back to the bundled Ollama container for chat."
+    export LLM_CHAT_PROVIDER=ollama
+  fi
+fi
+
 # 3) Bring the stack up with the allocated ports.
 note "Starting containers ..."
 if ! BACKEND_PORT="${BACKEND_PORT}" FRONTEND_PORT="${FRONTEND_PORT}" \
   FRONTEND_API_URL="http://localhost:${BACKEND_PORT}" \
+  LLM_CHAT_PROVIDER="${LLM_CHAT_PROVIDER:-}" \
   ${COMPOSE} up -d; then
   err "docker compose up failed."
   ${COMPOSE} ps || true
