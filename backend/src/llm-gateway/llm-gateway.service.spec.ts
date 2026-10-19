@@ -34,7 +34,7 @@ function makeAdapter(
 
 async function buildModule(
   chatProvider: 'ollama' | 'openai' | 'anthropic',
-  adapters: Partial<Record<'ollama' | 'openai' | 'anthropic', LlmAdapter>>,
+  adapters: Partial<Record<'ollama' | 'openai' | 'lm-manager' | 'anthropic', LlmAdapter>>,
   env: Record<string, string> = {},
 ): Promise<{ module: TestingModule; service: LlmGatewayService }> {
   const config = loadLlmGatewayConfig({
@@ -238,16 +238,22 @@ describe('LlmGatewayService', () => {
   });
 
   describe('listProviders', () => {
-    it('reports all three providers with capability flags', async () => {
+    it('reports all four providers with capability flags', async () => {
       const { service } = await buildModule('ollama', {
         ollama: makeAdapter('ollama'),
         openai: makeAdapter('openai', { capabilities: ['chat', 'embed', 'cloud'] }),
+        'lm-manager': makeAdapter('lm-manager', {
+          capabilities: ['chat', 'local', 'list-models'],
+        }),
         anthropic: makeAdapter('anthropic', { capabilities: ['chat', 'cloud'] }),
       });
 
       const providers = await service.listProviders();
 
-      expect(providers).toHaveLength(3);
+      expect(providers).toHaveLength(4);
+      const lmManager = providers.find((p) => p.provider === 'lm-manager');
+      expect(lmManager?.available.chat).toBe(true);
+      expect(lmManager?.available.embed).toBe(false); // no embeddings endpoint
       const ollama = providers.find((p) => p.provider === 'ollama');
       expect(ollama?.available.chat).toBe(true);
       expect(ollama?.available.embed).toBe(true);
@@ -260,6 +266,32 @@ describe('LlmGatewayService', () => {
       const anthropic = providers.find((p) => p.provider === 'anthropic');
       expect(anthropic?.available.chat).toBe(false);
       expect(anthropic?.available.embed).toBe(false);
+    });
+
+    it('defaults to lm-manager for chat and falls back to ollama for embeddings', () => {
+      const config = loadLlmGatewayConfig({} as NodeJS.ProcessEnv);
+      // LM Manager is the default chat provider (local, zero-config).
+      expect(config.provider).toBe('lm-manager');
+      expect(config.chatProvider).toBe('lm-manager');
+      // LM Manager has no /embeddings endpoint, so embeddings fall back to Ollama.
+      expect(config.embeddingProvider).toBe('ollama');
+      expect(config.lmManager.baseURL).toContain('12340');
+    });
+
+    it('resolves the local-host token in the LM Manager URL', () => {
+      const config = loadLlmGatewayConfig({
+        LM_MANAGER_URL: 'http://local-host:12340/v1',
+      } as NodeJS.ProcessEnv);
+      expect(config.lmManager.baseURL).toBe('http://host.docker.internal:12340/v1');
+    });
+
+    it('allows an explicit LLM_EMBEDDING_PROVIDER=lm-manager to fall back to ollama', () => {
+      const config = loadLlmGatewayConfig({
+        LLM_PROVIDER: 'lm-manager',
+        LLM_EMBEDDING_PROVIDER: 'lm-manager',
+      } as NodeJS.ProcessEnv);
+      expect(config.chatProvider).toBe('lm-manager');
+      expect(config.embeddingProvider).toBe('ollama');
     });
 
     it('marks cloud providers available when keys are present', async () => {
@@ -276,6 +308,9 @@ describe('LlmGatewayService', () => {
             useValue: {
               ollama: makeAdapter('ollama'),
               openai: makeAdapter('openai'),
+              'lm-manager': makeAdapter('lm-manager', {
+                capabilities: ['chat', 'local', 'list-models'],
+              }),
               anthropic: makeAdapter('anthropic', { capabilities: ['chat', 'cloud'] }),
             },
           },

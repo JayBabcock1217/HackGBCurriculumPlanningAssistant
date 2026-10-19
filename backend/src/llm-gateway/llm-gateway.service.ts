@@ -23,6 +23,7 @@ import { LlmGatewayState } from './llm-gateway.state';
 import { LLM_ADAPTERS } from './llm-gateway.tokens';
 import { OllamaAdapter } from './adapters/ollama.adapter';
 import { OpenAiAdapter } from './adapters/openai.adapter';
+import { LmManagerAdapter } from './adapters/lm-manager.adapter';
 import { AnthropicAdapter } from './adapters/anthropic.adapter';
 
 /**
@@ -50,6 +51,7 @@ export class LlmGatewayService implements OnModuleInit {
     this.adapters = {
       ollama: adapterMap.ollama as OllamaAdapter,
       openai: adapterMap.openai as OpenAiAdapter,
+      'lm-manager': adapterMap['lm-manager'] as LmManagerAdapter,
       anthropic: adapterMap.anthropic as AnthropicAdapter,
     };
   }
@@ -132,6 +134,8 @@ export class LlmGatewayService implements OnModuleInit {
       } else if (name === 'anthropic') {
         chatAvailable = !!this.config.anthropic.apiKey;
       }
+      // lm-manager is a local server: always "available" (reachability is
+      // checked by the Test connection button, which makes a real call).
       return {
         provider: adapter.provider,
         capabilities: adapter.capabilities,
@@ -140,7 +144,9 @@ export class LlmGatewayService implements OnModuleInit {
             ? this.config.ollama.chatModel
             : name === 'openai'
               ? this.config.openai.chatModel
-              : this.config.anthropic.chatModel,
+              : name === 'lm-manager'
+                ? this.config.lmManager.chatModel
+                : this.config.anthropic.chatModel,
         embeddingModel:
           name === 'ollama'
             ? this.config.ollama.embeddingModel
@@ -201,6 +207,7 @@ export class LlmGatewayService implements OnModuleInit {
       embeddingModel: string;
       baseURL: string;
     };
+    lmManager: { baseURL: string; chatModel: string; apiKeyMasked: string | null };
     anthropic: { apiKey: string | null; apiKeyMasked: string | null; chatModel: string; baseURL: string };
     defaultChatModel: string;
     defaultEmbeddingModel: string;
@@ -213,6 +220,11 @@ export class LlmGatewayService implements OnModuleInit {
       openai: {
         ...cfg.openai,
         apiKeyMasked: cfg.openai.apiKey ? this.maskKey(cfg.openai.apiKey) : null,
+      },
+      lmManager: {
+        baseURL: cfg.lmManager.baseURL,
+        chatModel: cfg.lmManager.chatModel,
+        apiKeyMasked: cfg.lmManager.apiKey ? this.maskKey(cfg.lmManager.apiKey) : null,
       },
       anthropic: {
         ...cfg.anthropic,
@@ -240,14 +252,21 @@ export class LlmGatewayService implements OnModuleInit {
     > & {
       ollama?: Partial<LlmGatewayConfig['ollama']>;
       openai?: Partial<Omit<LlmGatewayConfig['openai'], 'apiKey'> & { apiKey?: string }>;
+      lmManager?: Partial<Omit<LlmGatewayConfig['lmManager'], 'apiKey'> & { apiKey?: string }>;
       anthropic?: Partial<Omit<LlmGatewayConfig['anthropic'], 'apiKey'> & { apiKey?: string }>;
     },
   ): LlmGatewayConfig {
     const cfg = this.config;
+    let embeddingProvider = update.embeddingProvider ?? cfg.embeddingProvider;
+    // LM Manager has no embeddings endpoint — if the user (re)selects it as the
+    // embedding provider, fall back to Ollama so RAG keeps working.
+    if (embeddingProvider === 'lm-manager') {
+      embeddingProvider = 'ollama';
+    }
     const next: LlmGatewayConfig = {
       ...cfg,
       chatProvider: update.chatProvider ?? cfg.chatProvider,
-      embeddingProvider: update.embeddingProvider ?? cfg.embeddingProvider,
+      embeddingProvider,
       defaultChatModel: update.defaultChatModel ?? cfg.defaultChatModel,
       defaultEmbeddingModel: update.defaultEmbeddingModel ?? cfg.defaultEmbeddingModel,
       ollama: { ...cfg.ollama, ...(update.ollama ?? {}) },
@@ -255,6 +274,11 @@ export class LlmGatewayService implements OnModuleInit {
         ...cfg.openai,
         ...(update.openai ?? {}),
         apiKey: this.applyKey(cfg.openai.apiKey, update.openai?.apiKey),
+      },
+      lmManager: {
+        ...cfg.lmManager,
+        ...(update.lmManager ?? {}),
+        apiKey: this.applyKey(cfg.lmManager.apiKey, update.lmManager?.apiKey) || 'lm-manager',
       },
       anthropic: {
         ...cfg.anthropic,
@@ -279,6 +303,9 @@ export class LlmGatewayService implements OnModuleInit {
       OPENAI_CHAT_MODEL: next.openai.chatModel,
       OPENAI_EMBEDDING_MODEL: next.openai.embeddingModel,
       OPENAI_BASE_URL: next.openai.baseURL,
+      LM_MANAGER_URL: next.lmManager.baseURL,
+      LM_MANAGER_CHAT_MODEL: next.lmManager.chatModel,
+      LM_MANAGER_API_KEY: next.lmManager.apiKey,
       ANTHROPIC_API_KEY: next.anthropic.apiKey ?? '',
       ANTHROPIC_CHAT_MODEL: next.anthropic.chatModel,
       ANTHROPIC_BASE_URL: next.anthropic.baseURL,
@@ -290,6 +317,7 @@ export class LlmGatewayService implements OnModuleInit {
       defaultEmbeddingModel: resolved.defaultEmbeddingModel,
       ollama: resolved.ollama,
       openai: resolved.openai,
+      lmManager: resolved.lmManager,
       anthropic: resolved.anthropic,
     });
     this.logger.log(

@@ -10,6 +10,6 @@ export const LLM_GATEWAY_CONFIG = 'LLM_GATEWAY_CONFIG';
 
 /**
  * Token for the map of provider adapters:
- *   { ollama: OllamaAdapter, openai: OpenAiAdapter, anthropic: AnthropicAdapter }
+ *   { ollama, openai, 'lm-manager', anthropic }
  */
 export const LLM_ADAPTERS = 'LLM_ADAPTERS';

@@ -4,6 +4,7 @@ import {
   GenerateSuggestionsOptions,
   GenerateSuggestionsResult,
 } from './suggestion-generator.service';
+import { ACTIVITY_TYPES } from './activity-types';
 import { CurrentUser } from '../database/auth/current-user.decorator';
 import type { SafeUser } from '../database/auth/auth.service';
 
@@ -33,7 +34,18 @@ export class SuggestionGeneratorController {
       focus: body.focus,
       maxTokens: body.maxTokens,
       language: body.language,
+      activityType: body.activityType,
     });
+  }
+
+  /**
+   * Lesson/activity types available to the Resources generator.
+   * (Lives under /generate/ so it is not shadowed by the SuggestionController's
+   * GET /suggestions/:id param route.)
+   */
+  @Get('generate/activity-types')
+  activityTypes() {
+    return ACTIVITY_TYPES;
   }
 
   /**
@@ -58,6 +70,7 @@ export class SuggestionGeneratorController {
         maxTokens: body.maxTokens,
         language: body.language,
         kind: body.kind,
+        activityType: body.activityType,
       },
       user.id,
     );

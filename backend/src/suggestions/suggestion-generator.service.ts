@@ -7,6 +7,7 @@ import { LlmGatewayService } from '../llm-gateway/llm-gateway.service';
 import { FeedbackService } from '../database/feedback/feedback.service';
 import { Student } from '../database/student/student.entity';
 import { Curriculum } from '../database/curriculum/curriculum.entity';
+import { getActivityType } from './activity-types';
 
 export interface GenerateSuggestionsOptions {
   studentId: string;
@@ -27,6 +28,12 @@ export interface GenerateSuggestionsOptions {
    * Stored on the job row so the UI can show a label while waiting.
    */
   kind?: string;
+  /**
+   * Lesson/activity type for the Resources generator (guided_lesson,
+   * worksheet, reading, practice, assessment, project, game, intervention).
+   * When set, a single, complete artifact of that type is generated.
+   */
+  activityType?: string;
 }
 
 export interface LessonOption {
@@ -120,6 +127,7 @@ export class SuggestionGeneratorService {
       ownerId,
       focus: options.focus,
       kind: options.kind,
+      details: options.activityType ? { activityType: options.activityType } : undefined,
     });
     // Detach from the request lifecycle: don't await, and swallow rejections
     // (runJob records them on the job row) so the HTTP response has already
@@ -207,6 +215,14 @@ export class SuggestionGeneratorService {
 
     if (!student || !curriculum) {
       throw new BadRequestException('Student or curriculum not found');
+    }
+
+    // Resources path: a single, complete artifact of a specific
+    // lesson/activity type (guided_lesson, worksheet, reading, ...). Uses the
+    // same RAG retrieval + student context, but a dedicated prompt tuned to
+    // produce a legitimate, classroom-ready artifact.
+    if (options.activityType) {
+      return this.generateActivity(options, student, curriculum);
     }
 
     // 2. Retrieve relevant curriculum chunks for this student + curriculum
@@ -369,6 +385,333 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
       sources,
       model: parsed.model,
     };
+  }
+
+  /**
+   * Resources generator: produce a single, complete, curriculum-grounded
+   * artifact of a specific lesson/activity type for one student.
+   *
+   * Pipeline (mirrors `generate`):
+   *   1. Retrieve relevant curriculum chunks (RAG) — the activity must be
+   *      grounded in the actual curriculum content, not generic advice.
+   *   2. Retrieve the teacher's relevant past feedback (Chunk 8) so the
+   *      artifact respects what they accepted/rejected before.
+   *   3. Build a strict-JSON prompt for ONE artifact of the requested type.
+   *   4. Persist it as a suggestion so it shows up on the Suggestions page too.
+   */
+  private async generateActivity(
+    options: GenerateSuggestionsOptions,
+    student: Student,
+    curriculum: Curriculum,
+  ): Promise<GenerateSuggestionsResult> {
+    const activity = getActivityType(options.activityType!);
+    if (!activity) {
+      throw new BadRequestException(`Unknown activity type: ${options.activityType}`);
+    }
+
+    // 1. Retrieve curriculum context. The query includes the activity type so
+    //    retrieval pulls chunks most relevant to the specific skill being practiced.
+    const query = `${curriculum.title} ${curriculum.subject || ''} ${curriculum.gradeLevel || ''} ${activity.label} ${options.focus || ''}`.trim();
+    const sources = await this.rag.retrieve(query, {
+      curriculumId: curriculum.id,
+      topK: 6,
+      minSimilarity: 0.1,
+    });
+
+    // 2. Teacher's past feedback (best effort — never blocks generation).
+    const teacherId = student.teacher?.id;
+    const pastFeedback: Array<{
+      action: string;
+      reason?: string;
+      teacherComment?: string;
+      modifiedContent?: string;
+      weight: number;
+    }> = [];
+    if (teacherId) {
+      try {
+        const { embedding } = await this.gateway.embed(query);
+        const relevant = await this.feedbackService.findRelevant(teacherId, embedding, {
+          limit: 5,
+        });
+        for (const fb of relevant) {
+          pastFeedback.push({
+            action: fb.action,
+            reason: fb.reason,
+            teacherComment: fb.teacherComment,
+            modifiedContent: fb.modifiedContent,
+            weight: fb.weight,
+          });
+        }
+      } catch (e) {
+        this.logger.warn(
+          `Feedback retrieval failed (continuing without it): ${e instanceof Error ? e.message : e}`,
+        );
+      }
+    }
+
+    // 3. Build the prompt.
+    const studentContext = this.buildStudentContext(student);
+    const contextBlocks = sources.length
+      ? sources
+          .map(
+            (s, i) =>
+              `[Source ${i + 1}] (curriculum chunk, similarity ${s.similarity})\n${s.content}`,
+          )
+          .join('\n\n---\n\n')
+      : 'No curriculum chunks were retrieved. Base the artifact on the curriculum title/subject/grade level and the student profile, and label it as a general best-practice activity.';
+    const feedbackBlock = this.buildFeedbackBlock(pastFeedback);
+
+    const prompt = `You are an expert K-12 teacher creating a real, classroom-ready instructional artifact.
+
+STUDENT:
+${studentContext}
+
+CURRICULUM:
+- Title: ${curriculum.title}
+- Subject: ${curriculum.subject || 'Unknown'}
+- Grade level: ${curriculum.gradeLevel || 'Unknown'}
+${options.focus ? `- Teacher focus: ${options.focus}` : ''}
+${options.language ? `\nOUTPUT LANGUAGE: Write ALL human-readable content (title, summary, and the full artifact) in ${options.language}. Keep the JSON structure and keys in English, but translate the human-readable values into ${options.language}.` : ''}
+
+ARTIFACT TYPE: ${activity.label}
+${activity.prompt}
+
+CURRICULUM CONTEXT (retrieved chunks — the artifact MUST be grounded in this):
+${contextBlocks}
+
+TEACHER'S PAST FEEDBACK (apply these — higher weight = more relevant):
+${feedbackBlock}
+
+REQUIREMENTS:
+- The artifact must be specific to THIS student: match their grade, reading level, and any IEP/504 accommodations, ELL status, or learning differences. Do NOT produce a generic template.
+- Every skill, problem, or content item must be grounded in the curriculum context above. Cite sources as [1], [2] where relevant.
+- If the student has an IEP/504 or is an ELL, weave the appropriate accommodations directly into the procedure (not as an afterthought).
+- The artifact must be complete enough that a teacher could print it and use it tomorrow with no further work.
+- If a student field is missing, make a reasonable assumption for the stated grade and note it in the summary.
+
+Respond with STRICT JSON only — no markdown, no code fences, no text outside the JSON. Use exactly this shape:
+{
+  "title": "short descriptive title for the artifact",
+  "type": "activity",
+  "summary": "1-2 sentence overview of what the student will do",
+  "content": "The complete artifact, formatted in plain text with clear section headers (OBJECTIVES, MATERIALS, PROCEDURE, DIFFERENTIATION/ACCOMMODATIONS, ASSESSMENT/CHECK-FOR-UNDERSTANDING as appropriate for the type)."
+}`;
+
+    const messages = [
+      { role: 'system' as const, content: 'You output strict JSON only. Never include markdown or commentary.' },
+      { role: 'user' as const, content: prompt },
+    ];
+    // Activities are single, complete artifacts — give the model room.
+    const chatOpts = { maxTokens: options.maxTokens ?? 6000, temperature: 0.5 };
+
+    // 4. Generate (retry on malformed JSON; small models are less reliable, so
+    //    allow a few attempts, and on the final failure fall back to storing
+    //    the raw model text as the artifact so the teacher still gets output).
+    let parsed: { option: LessonOption; model: string } | undefined;
+    let lastError: unknown;
+    let lastRaw = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const raw = await this.gateway.chat(messages, chatOpts);
+      lastRaw = raw.content;
+      try {
+        parsed = this.parseActivityJson(raw.content, raw.model);
+        break;
+      } catch (e) {
+        lastError = e;
+        this.logger.warn(
+          `Activity attempt ${attempt + 1} failed to parse JSON; ${
+            attempt < 2 ? 'retrying' : 'falling back to raw text'
+          }`,
+        );
+      }
+    }
+    if (!parsed) {
+      const fallbackContent =
+        lastRaw && lastRaw.length > 50
+          ? lastRaw
+          : 'The model did not return a usable artifact. Please try again.';
+      this.logger.error(
+        `Activity JSON parse failed after 3 attempts. Raw: ${lastRaw.slice(0, 500)}`,
+      );
+      parsed = {
+        option: {
+          title: `${activity.label} (unstructured)`,
+          type: 'activity',
+          summary:
+            'The model did not return structured JSON; the raw output is shown below.',
+          content: fallbackContent,
+        },
+        model: 'unknown',
+      };
+    }
+
+    // 5. Persist as a suggestion (shows on the Suggestions page + history).
+    await this.suggestionService.create({
+      type: parsed.option.type,
+      content: parsed.option.content,
+      title: parsed.option.title,
+      details: {
+        summary: parsed.option.summary,
+        activityType: activity.id,
+        sources: sources.map((s) => ({
+          chunkId: s.chunkId,
+          similarity: s.similarity,
+        })),
+        focus: options.focus,
+        language: options.language,
+      },
+      modelUsed: parsed.model,
+      studentId: student.id,
+      curriculumId: curriculum.id,
+    });
+
+    this.logger.log(
+      `Generated ${activity.label} for student ${student.id} / curriculum ${curriculum.id} via ${parsed.model}`,
+    );
+
+    return {
+      studentId: student.id,
+      curriculumId: curriculum.id,
+      options: [parsed.option],
+      sources,
+      model: parsed.model,
+    };
+  }
+
+  /** Parse the single-activity JSON shape (tolerates fences / bare object). */
+  private parseActivityJson(raw: string, model: string): { option: LessonOption; model: string } {
+    let text = raw.trim();
+    const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) text = fence[1].trim();
+
+    let data: any = null;
+
+    // Small models sometimes emit the object more than once (repetition) or
+    // wrap it in extra braces. Strategy 1: the outermost balanced object.
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        data = JSON.parse(text.slice(start, end + 1));
+      } catch {
+        data = null;
+      }
+    }
+
+    // Strategy 2: the model returned a BARE object { title, type, summary,
+    // content } rather than { options: [...] }. Accept it directly.
+    if (!data) {
+      const obj = this.extractFirstObject(text);
+      if (obj) data = obj;
+    }
+
+    // Normalize to a single option.
+    let opt: any = null;
+    if (data && Array.isArray(data.options) && data.options.length) {
+      opt = data.options[0];
+    } else if (data && typeof data === 'object' && (data.title || data.content)) {
+      opt = data;
+    }
+
+    const content = this.normalizeContent(opt?.content);
+    if (!content) {
+      this.logger.error(`Failed to parse activity JSON. Raw: ${raw.slice(0, 500)}`);
+      throw new BadRequestException('The model did not return a valid artifact. Please try again.');
+    }
+
+    return {
+      option: {
+        title: String(opt?.title || 'Generated activity'),
+        type: 'activity',
+        summary: String(opt?.summary || ''),
+        content,
+      },
+      model,
+    };
+  }
+
+  /**
+   * The `content` field should be a plain string, but small models sometimes
+   * return it as a JSON object (e.g. { Activities: [...], "IEP/504 Accommodations": ... }).
+   * Serialize that into a readable, sectioned plain-text artifact.
+   */
+  private normalizeContent(content: unknown): string {
+    if (typeof content === 'string') {
+      return content.trim();
+    }
+    if (Array.isArray(content)) {
+      return content
+        .map((item) =>
+          typeof item === 'object' && item !== null
+            ? JSON.stringify(item, null, 2)
+            : String(item),
+        )
+        .join('\n');
+    }
+    if (typeof content === 'object' && content !== null) {
+      // Render the object as a readable, sectioned document.
+      const lines: string[] = [];
+      for (const [key, value] of Object.entries(content)) {
+        lines.push(`## ${key}`);
+        if (Array.isArray(value)) {
+          value.forEach((v, i) => {
+            if (typeof v === 'object' && v !== null) {
+              lines.push(`${i + 1}.`);
+              for (const [vk, vv] of Object.entries(v)) {
+                lines.push(`   ${vk}: ${Array.isArray(vv) ? vv.join(', ') : vv}`);
+              }
+            } else {
+              lines.push(`${i + 1}. ${v}`);
+            }
+          });
+        } else if (typeof value === 'object' && value !== null) {
+          for (const [vk, vv] of Object.entries(value)) {
+            lines.push(`- ${vk}: ${vv}`);
+          }
+        } else {
+          lines.push(String(value));
+        }
+        lines.push('');
+      }
+      return lines.join('\n');
+    }
+    return '';
+  }
+
+  /**
+   * Extract the first top-level {...} object from a string that may contain
+   * leading/trailing prose or repeated objects. Walks braces with a string
+   * awareness so quotes don't confuse the balance.
+   */
+  private extractFirstObject(text: string): any | null {
+    const start = text.indexOf('{');
+    if (start === -1) return null;
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          const candidate = text.slice(start, i + 1);
+          try {
+            return JSON.parse(candidate);
+          } catch {
+            return null;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   private buildRetrievalQuery(

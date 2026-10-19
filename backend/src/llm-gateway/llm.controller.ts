@@ -36,6 +36,7 @@ export interface LlmSettingsDto {
     embeddingModel?: string;
     baseURL?: string;
   };
+  lmManager?: { apiKey?: string; chatModel?: string; baseURL?: string };
   anthropic?: { apiKey?: string; chatModel?: string; baseURL?: string };
 }
 

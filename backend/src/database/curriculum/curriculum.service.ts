@@ -139,12 +139,19 @@ export class CurriculumService {
     // stored text column to ::vector for the comparison.
     // Note: TypeORM created the column names as camelCase quoted identifiers
     // (e.g. "curriculumId", "chunkIndex"), so the raw SQL must quote them.
+    // Chunks with a NULL embedding (e.g. seeded before Ollama was reachable, or
+    // never embedded) can't participate in a vector comparison, so exclude them —
+    // otherwise `NULL::vector` in the distance operator makes Postgres error out.
     let query = `
       SELECT c.*, 1 - (c."embedding"::vector <=> $1::vector) AS similarity
       FROM "curriculum_chunks" c
     `;
+    // Chunks with a NULL embedding (seeded before Ollama was reachable, or never
+    // embedded) can't participate in a vector comparison, so exclude them —
+    // otherwise `NULL::vector` in the distance operator makes Postgres error out.
+    query += ' WHERE c."embedding" IS NOT NULL';
     if (curriculumId) {
-      query += ' WHERE c."curriculumId" = $2';
+      query += ' AND c."curriculumId" = $2';
       params.splice(1, 0, curriculumId);
     }
     query +=

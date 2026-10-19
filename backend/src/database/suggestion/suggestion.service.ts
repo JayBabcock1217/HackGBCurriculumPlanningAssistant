@@ -68,6 +68,7 @@ export class SuggestionService {
     ownerId?: string;
     focus?: string;
     kind?: string;
+    details?: Record<string, unknown>;
   }): Promise<Suggestion> {
     const job = this.suggestionRepo.create({
       type: 'resource' as const,
@@ -79,6 +80,7 @@ export class SuggestionService {
         jobType: 'resource_generation',
         kind: params.kind,
         focus: params.focus,
+        ...(params.details ?? {}),
       },
       student: { id: params.studentId } as any,
       curriculum: params.curriculumId

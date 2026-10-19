@@ -11,7 +11,7 @@
  *   3. Built-in default (ollama)
  */
 
-export type LlmProviderName = 'ollama' | 'openai' | 'anthropic';
+export type LlmProviderName = 'ollama' | 'openai' | 'lm-manager' | 'anthropic';
 
 export interface LlmGatewayConfig {
   provider: LlmProviderName;
@@ -22,10 +22,17 @@ export interface LlmGatewayConfig {
 
   ollama: { url: string; chatModel: string; embeddingModel: string };
   openai: { apiKey: string | null; chatModel: string; embeddingModel: string; baseURL: string };
+  /**
+   * LM Manager (llm-gpu-manager): a local, OpenAI-compatible gateway that
+   * routes chat/completions by model alias to a running llama-server. It does
+   * NOT expose an /embeddings endpoint, so embeddings are served by a separate
+   * (Ollama or OpenAI-compatible) server. See `lm-manager.adapter.ts`.
+   */
+  lmManager: { baseURL: string; chatModel: string; apiKey: string };
   anthropic: { apiKey: string | null; chatModel: string; baseURL: string };
 }
 
-const PROVIDERS: LlmProviderName[] = ['ollama', 'openai', 'anthropic'];
+const PROVIDERS: LlmProviderName[] = ['ollama', 'openai', 'lm-manager', 'anthropic'];
 
 /**
  * LLM_LOCAL_HOST is a platform-independent token for "the machine that is
@@ -70,17 +77,25 @@ function parseProvider(value: string | undefined, fallback: LlmProviderName): Ll
 }
 
 export function loadLlmGatewayConfig(env: NodeJS.ProcessEnv = process.env): LlmGatewayConfig {
-  const globalProvider = parseProvider(env.LLM_PROVIDER, 'ollama');
+  const globalProvider = parseProvider(env.LLM_PROVIDER, 'lm-manager');
+
+  // LM Manager does not expose embeddings, so an embedding provider that
+  // resolves to it (via LLM_EMBEDDING_PROVIDER=lm-manager or by inheriting the
+  // global provider) falls back to Ollama.
+  let embeddingProvider = parseProvider(env.LLM_EMBEDDING_PROVIDER, globalProvider);
+  if (embeddingProvider === 'lm-manager') {
+    embeddingProvider = 'ollama';
+  }
 
   return {
     provider: globalProvider,
     chatProvider: parseProvider(env.LLM_CHAT_PROVIDER, globalProvider),
-    embeddingProvider: parseProvider(env.LLM_EMBEDDING_PROVIDER, globalProvider),
+    embeddingProvider,
     defaultChatModel: env.LLM_CHAT_MODEL || '',
     defaultEmbeddingModel: env.LLM_EMBEDDING_MODEL || '',
 
     ollama: {
-      url: resolveLocalHostToken(env.OLLAMA_URL || 'http://localhost:11434', env),
+      url: resolveLocalHostToken(env.OLLAMA_URL || 'http://local-host:11434', env),
       chatModel: env.OLLAMA_CHAT_MODEL || 'llama3.2:1b',
       embeddingModel: env.OLLAMA_EMBEDDING_MODEL || 'nomic-embed-text',
     },
@@ -89,6 +104,14 @@ export function loadLlmGatewayConfig(env: NodeJS.ProcessEnv = process.env): LlmG
       chatModel: env.OPENAI_CHAT_MODEL || 'gpt-4o-mini',
       embeddingModel: env.OPENAI_EMBEDDING_MODEL || 'text-embedding-3-small',
       baseURL: resolveLocalHostToken(env.OPENAI_BASE_URL || '', env),
+    },
+    lmManager: {
+      baseURL: resolveLocalHostToken(
+        env.LM_MANAGER_URL || 'http://local-host:12340/v1',
+        env,
+      ),
+      chatModel: env.LM_MANAGER_CHAT_MODEL || '',
+      apiKey: env.LM_MANAGER_API_KEY || 'lm-manager',
     },
     anthropic: {
       apiKey: env.ANTHROPIC_API_KEY || null,
