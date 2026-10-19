@@ -324,7 +324,11 @@ export class LlmGatewayService implements OnModuleInit {
       () =>
         chatAdapter.chat(
           [{ role: 'user', content: 'Reply with the single word: ok' }],
-          { model: chatModel, maxTokens: 8 },
+          // Generous budget: reasoning/thinking models emit reasoning_content
+          // tokens before the visible answer, so a tiny cap (e.g. 8) gets fully
+          // consumed by thinking and leaves an empty `content`, making the test
+          // report a false failure. 512 leaves room for thinking + the answer.
+          { model: chatModel, maxTokens: 512 },
         ),
       'chat',
       chatAdapter.provider,
