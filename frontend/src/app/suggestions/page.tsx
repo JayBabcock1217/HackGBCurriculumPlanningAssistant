@@ -384,7 +384,7 @@ export default function SuggestionsPage() {
                 <select
                   value={genStudent}
                   onChange={(e) => setGenStudent(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                   required
                 >
                   <option value="">Select student…</option>
@@ -402,7 +402,7 @@ export default function SuggestionsPage() {
                 <select
                   value={genCurriculum}
                   onChange={(e) => setGenCurriculum(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                   required
                 >
                   <option value="">Select curriculum…</option>
@@ -426,7 +426,7 @@ export default function SuggestionsPage() {
                 <select
                   value={genCount}
                   onChange={(e) => setGenCount(Number(e.target.value))}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                 >
                   {[2, 3, 4, 5].map((n) => (
                     <option key={n} value={n}>
@@ -442,7 +442,7 @@ export default function SuggestionsPage() {
                 <select
                   value={genLanguage}
                   onChange={(e) => setGenLanguage(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                 >
                   <option value="">Match curriculum</option>
                   <option value="English">English</option>

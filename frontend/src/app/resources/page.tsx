@@ -337,7 +337,7 @@ export default function ResourcesPage() {
                     <select
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                       required
                     >
                       {students.map((s) => (
@@ -354,7 +354,7 @@ export default function ResourcesPage() {
                     <select
                       value={curriculumId}
                       onChange={(e) => setCurriculumId(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                       required
                     >
                       <option value="">—</option>
@@ -372,7 +372,7 @@ export default function ResourcesPage() {
                     <select
                       value={kind}
                       onChange={(e) => setKind(e.target.value as ResourceKind)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                     >
                       <option value="worksheet">{t('resources.worksheet')}</option>
                       <option value="reading">{t('resources.reading')}</option>

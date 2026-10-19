@@ -272,7 +272,7 @@ export default function StudentsPage() {
                   <select
                     value={ellProficiency}
                     onChange={(e) => setEllProficiency(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                   >
                     <option value="beginner">beginner</option>
                     <option value="intermediate">intermediate</option>
@@ -286,7 +286,7 @@ export default function StudentsPage() {
                 <select
                   value={iepType}
                   onChange={(e) => setIepType(e.target.value)}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm"
                 >
                   <option value="">None</option>
                   <option value="IEP">IEP</option>

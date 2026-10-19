@@ -363,7 +363,7 @@ export default function SettingsPage() {
                     <select
                       value={chatProvider}
                       onChange={(e) => setChatProvider(e.target.value as LlmProviderName)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {PROVIDERS.map((p) => (
                         <option key={p.value} value={p.value}>
@@ -376,7 +376,7 @@ export default function SettingsPage() {
                     <select
                       value={embeddingProvider}
                       onChange={(e) => setEmbeddingProvider(e.target.value as LlmProviderName)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       {PROVIDERS.filter((p) => p.value !== 'anthropic').map((p) => (
                         <option key={p.value} value={p.value}>
