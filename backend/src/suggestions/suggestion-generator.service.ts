@@ -8,6 +8,18 @@ import { FeedbackService } from '../database/feedback/feedback.service';
 import { Student } from '../database/student/student.entity';
 import { Curriculum } from '../database/curriculum/curriculum.entity';
 import { getActivityType } from './activity-types';
+import {
+  ResourceDocument,
+  toResourceDocument,
+} from './document-schema';
+import { docToPlainText } from './document-renderer';
+
+/**
+ * The structured document is persisted as a plain JSON object in the
+ * suggestion's jsonb `details.document` column. Type it as a record so it
+ * round-trips through TypeORM without index-signature complaints.
+ */
+type DocumentJson = Record<string, unknown>;
 
 export interface GenerateSuggestionsOptions {
   studentId: string;
@@ -41,6 +53,12 @@ export interface LessonOption {
   type: 'lesson_plan' | 'activity' | 'assessment' | 'intervention' | 'resource';
   summary: string;
   content: string;
+  /**
+   * Structured document (Resources generator). When present, the UI renders it
+   * and the /documents/:id endpoint can export it as HTML/DOCX/PDF. Legacy
+   * suggestion options have no document and rely on `content` only.
+   */
+  document?: ResourceDocument;
 }
 
 export interface SuggestionSource {
@@ -150,11 +168,16 @@ export class SuggestionGeneratorService {
       throw new BadRequestException('Not your generation');
     }
     const d = (job.details as Record<string, unknown>) || {};
+    const doc =
+      d.document && typeof d.document === 'object'
+        ? toResourceDocument(d.document as any)
+        : null;
     const opt: LessonOption = {
       title: job.title || 'Generated resource',
       type: (job.type as LessonOption['type']) || 'resource',
       summary: String(d.summary || ''),
       content: job.content,
+      document: doc || undefined,
     };
     return {
       studentId: job.student?.id,
@@ -195,6 +218,7 @@ export class SuggestionGeneratorService {
         summary: opt?.summary,
         modelUsed: result.model,
         sources,
+        document: opt?.document as DocumentJson | undefined,
       });
       this.logger.log(`Background job ${jobId} completed`);
     } catch (e) {
@@ -460,6 +484,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
           .join('\n\n---\n\n')
       : 'No curriculum chunks were retrieved. Base the artifact on the curriculum title/subject/grade level and the student profile, and label it as a general best-practice activity.';
     const feedbackBlock = this.buildFeedbackBlock(pastFeedback);
+    const studentName = `${student.firstName} ${student.lastName}`.trim();
 
     const prompt = `You are an expert K-12 teacher creating a real, classroom-ready instructional artifact.
 
@@ -471,7 +496,7 @@ CURRICULUM:
 - Subject: ${curriculum.subject || 'Unknown'}
 - Grade level: ${curriculum.gradeLevel || 'Unknown'}
 ${options.focus ? `- Teacher focus: ${options.focus}` : ''}
-${options.language ? `\nOUTPUT LANGUAGE: Write ALL human-readable content (title, summary, and the full artifact) in ${options.language}. Keep the JSON structure and keys in English, but translate the human-readable values into ${options.language}.` : ''}
+${options.language ? `\nOUTPUT LANGUAGE: Write ALL human-readable content (title, subtitle, and every block's text) in ${options.language}. Keep the JSON structure and keys in English, but translate the human-readable values into ${options.language}.` : ''}
 
 ARTIFACT TYPE: ${activity.label}
 ${activity.prompt}
@@ -485,24 +510,52 @@ ${feedbackBlock}
 REQUIREMENTS:
 - The artifact must be specific to THIS student: match their grade, reading level, and any IEP/504 accommodations, ELL status, or learning differences. Do NOT produce a generic template.
 - Every skill, problem, or content item must be grounded in the curriculum context above. Cite sources as [1], [2] where relevant.
-- If the student has an IEP/504 or is an ELL, weave the appropriate accommodations directly into the procedure (not as an afterthought).
+- If the student has an IEP/504 or is an ELL, include a callout block (variant "accommodation") weaving the accommodations directly into the plan (not as an afterthought).
 - The artifact must be complete enough that a teacher could print it and use it tomorrow with no further work.
-- If a student field is missing, make a reasonable assumption for the stated grade and note it in the summary.
+- If a student field is missing, make a reasonable assumption for the stated grade and note it in the subtitle.
 
-Respond with STRICT JSON only — no markdown, no code fences, no text outside the JSON. Use exactly this shape:
+Respond with STRICT JSON only — no markdown, no code fences, no text outside the JSON. Use EXACTLY this shape (a structured document made of ordered "blocks"):
 {
   "title": "short descriptive title for the artifact",
-  "type": "activity",
-  "summary": "1-2 sentence overview of what the student will do",
-  "content": "The complete artifact, formatted in plain text with clear section headers (OBJECTIVES, MATERIALS, PROCEDURE, DIFFERENTIATION/ACCOMMODATIONS, ASSESSMENT/CHECK-FOR-UNDERSTANDING as appropriate for the type)."
-}`;
+  "subtitle": "1-2 sentence overview of what the student will do",
+  "meta": {
+    "subject": "${curriculum.subject || ''}",
+    "grade": "${curriculum.gradeLevel || ''}",
+    "activityType": "${activity.label}",
+    "studentName": "${studentName}"
+  },
+  "blocks": [
+    { "kind": "heading", "level": 1, "text": "Objectives" },
+    { "kind": "list", "ordered": true, "items": ["objective 1", "objective 2"] },
+    { "kind": "heading", "level": 1, "text": "Materials" },
+    { "kind": "list", "ordered": false, "items": ["item 1", "item 2"] },
+    { "kind": "heading", "level": 1, "text": "Procedure" },
+    { "kind": "list", "ordered": true, "items": ["step 1", "step 2"] },
+    { "kind": "callout", "variant": "accommodation", "text": "accommodation note for this student" },
+    { "kind": "problems", "label": "Practice", "problems": [ { "text": "27 + 45 = ?", "points": "2 pts", "answer": "72", "solution": "7+5=12, regroup..." } ] },
+    { "kind": "table", "table": { "headers": ["column 1", "column 2"], "rows": [["a", "b"], ["c", "d"]] } },
+    { "kind": "answerKey", "problems": [ { "text": "27 + 45 = ?", "answer": "72", "solution": "..." } ] },
+    { "kind": "paragraph", "text": "closing note or closure/exit-ticket description" }
+  ]
+}
+
+BLOCK RULES:
+- Use ONLY these block kinds: heading, paragraph, list, table, problems, answerKey, callout.
+- "heading" levels: 1 for major sections, 2 for subsections.
+- "list": set "ordered" true for numbered steps, false for bullet lists.
+- "problems": a numbered set of problems. Put the student-facing problem in "text"; the "answer" and "solution" are used ONLY in the answer key (never printed next to the problem). Include "answer" for every problem that has one.
+- "answerKey": repeat the problems WITH their answers/solutions shown. Use it for worksheets, practice sets, and assessments.
+- "table": use for vocabulary lists, comparison charts, scoring rubrics, or game card contents.
+- "callout": use variant "accommodation" for IEP/504/ELL support, "tip" for teaching tips, "warning" for cautions, or "note" for general notes.
+- Order the blocks so the document reads top-to-bottom as a teacher would use it.
+- Keep each block's text concise and specific to this student and the curriculum context.`;
 
     const messages = [
       { role: 'system' as const, content: 'You output strict JSON only. Never include markdown or commentary.' },
       { role: 'user' as const, content: prompt },
     ];
     // Activities are single, complete artifacts — give the model room.
-    const chatOpts = { maxTokens: options.maxTokens ?? 6000, temperature: 0.5 };
+    const chatOpts = { maxTokens: options.maxTokens ?? 8000, temperature: 0.5 };
 
     // 4. Generate (retry on malformed JSON; small models are less reliable, so
     //    allow a few attempts, and on the final failure fall back to storing
@@ -514,7 +567,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
       const raw = await this.gateway.chat(messages, chatOpts);
       lastRaw = raw.content;
       try {
-        parsed = this.parseActivityJson(raw.content, raw.model);
+        parsed = this.parseActivityDocument(raw.content, raw.model);
         break;
       } catch (e) {
         lastError = e;
@@ -533,6 +586,13 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
       this.logger.error(
         `Activity JSON parse failed after 3 attempts. Raw: ${lastRaw.slice(0, 500)}`,
       );
+      // Even on a parse failure, wrap the raw text in a document so it still
+      // exports as HTML/DOCX/PDF (as a single paragraph).
+      const fallbackDoc = toResourceDocument({
+        title: `${activity.label} (unstructured)`,
+        subtitle: 'The model did not return structured JSON; the raw output is shown below.',
+        blocks: [{ kind: 'paragraph', text: fallbackContent }],
+      });
       parsed = {
         option: {
           title: `${activity.label} (unstructured)`,
@@ -540,6 +600,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
           summary:
             'The model did not return structured JSON; the raw output is shown below.',
           content: fallbackContent,
+          document: fallbackDoc || undefined,
         },
         model: 'unknown',
       };
@@ -559,6 +620,7 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
         })),
         focus: options.focus,
         language: options.language,
+        document: parsed.option.document as DocumentJson | undefined,
       },
       modelUsed: parsed.model,
       studentId: student.id,
@@ -578,8 +640,14 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
     };
   }
 
-  /** Parse the single-activity JSON shape (tolerates fences / bare object). */
-  private parseActivityJson(raw: string, model: string): { option: LessonOption; model: string } {
+  /**
+   * Parse the model's output into a structured ResourceDocument. Tolerates
+   * code fences, repeated objects, and the legacy { title, summary, content }
+   * shape (see toResourceDocument). Returns a LessonOption carrying both the
+   * structured document and a flattened plain-text `content` (for the
+   * Suggestions page + legacy clients).
+   */
+  private parseActivityDocument(raw: string, model: string): { option: LessonOption; model: string } {
     let text = raw.trim();
     const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (fence) text = fence[1].trim();
@@ -598,84 +666,33 @@ Respond with STRICT JSON only — no markdown, no code fences, no text outside t
       }
     }
 
-    // Strategy 2: the model returned a BARE object { title, type, summary,
-    // content } rather than { options: [...] }. Accept it directly.
+    // Strategy 2: walk to the first balanced top-level object.
     if (!data) {
-      const obj = this.extractFirstObject(text);
-      if (obj) data = obj;
+      data = this.extractFirstObject(text);
     }
 
-    // Normalize to a single option.
-    let opt: any = null;
-    if (data && Array.isArray(data.options) && data.options.length) {
-      opt = data.options[0];
-    } else if (data && typeof data === 'object' && (data.title || data.content)) {
-      opt = data;
-    }
-
-    const content = this.normalizeContent(opt?.content);
-    if (!content) {
+    if (!data) {
       this.logger.error(`Failed to parse activity JSON. Raw: ${raw.slice(0, 500)}`);
       throw new BadRequestException('The model did not return a valid artifact. Please try again.');
     }
 
+    const doc = toResourceDocument(data);
+    if (!doc) {
+      this.logger.error(`Activity JSON had no usable content. Raw: ${raw.slice(0, 500)}`);
+      throw new BadRequestException('The model did not return a valid artifact. Please try again.');
+    }
+
+    const content = docToPlainText(doc);
     return {
       option: {
-        title: String(opt?.title || 'Generated activity'),
+        title: doc.title,
         type: 'activity',
-        summary: String(opt?.summary || ''),
+        summary: doc.subtitle || '',
         content,
+        document: doc,
       },
       model,
     };
-  }
-
-  /**
-   * The `content` field should be a plain string, but small models sometimes
-   * return it as a JSON object (e.g. { Activities: [...], "IEP/504 Accommodations": ... }).
-   * Serialize that into a readable, sectioned plain-text artifact.
-   */
-  private normalizeContent(content: unknown): string {
-    if (typeof content === 'string') {
-      return content.trim();
-    }
-    if (Array.isArray(content)) {
-      return content
-        .map((item) =>
-          typeof item === 'object' && item !== null
-            ? JSON.stringify(item, null, 2)
-            : String(item),
-        )
-        .join('\n');
-    }
-    if (typeof content === 'object' && content !== null) {
-      // Render the object as a readable, sectioned document.
-      const lines: string[] = [];
-      for (const [key, value] of Object.entries(content)) {
-        lines.push(`## ${key}`);
-        if (Array.isArray(value)) {
-          value.forEach((v, i) => {
-            if (typeof v === 'object' && v !== null) {
-              lines.push(`${i + 1}.`);
-              for (const [vk, vv] of Object.entries(v)) {
-                lines.push(`   ${vk}: ${Array.isArray(vv) ? vv.join(', ') : vv}`);
-              }
-            } else {
-              lines.push(`${i + 1}. ${v}`);
-            }
-          });
-        } else if (typeof value === 'object' && value !== null) {
-          for (const [vk, vv] of Object.entries(value)) {
-            lines.push(`- ${vk}: ${vv}`);
-          }
-        } else {
-          lines.push(String(value));
-        }
-        lines.push('');
-      }
-      return lines.join('\n');
-    }
-    return '';
   }
 
   /**

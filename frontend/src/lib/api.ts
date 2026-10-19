@@ -151,6 +151,43 @@ export interface Suggestion {
   } | null;
 }
 
+// ---------- Structured document (Resources generator) ----------
+// The backend returns a typed document (title + ordered blocks) so the UI can
+// render it nicely and the /documents endpoint can export it as HTML/DOCX/PDF.
+
+export interface DocTable {
+  headers: string[];
+  rows: string[][];
+}
+
+export interface DocProblem {
+  text: string;
+  points?: string;
+  answer?: string;
+  solution?: string;
+}
+
+export type DocBlock =
+  | { kind: 'heading'; level: 1 | 2 | 3; text: string }
+  | { kind: 'paragraph'; text: string }
+  | { kind: 'list'; ordered: boolean; items: string[] }
+  | { kind: 'table'; table: DocTable }
+  | { kind: 'problems'; label?: string; problems: DocProblem[] }
+  | { kind: 'answerKey'; problems: DocProblem[] }
+  | { kind: 'callout'; variant?: string; text: string };
+
+export interface ResourceDocument {
+  title: string;
+  subtitle?: string;
+  meta?: {
+    subject?: string;
+    grade?: string;
+    activityType?: string;
+    studentName?: string;
+  };
+  blocks: DocBlock[];
+}
+
 export interface GenerateResult {
   studentId: string;
   curriculumId: string;
@@ -159,6 +196,8 @@ export interface GenerateResult {
     type: string;
     summary: string;
     content: string;
+    /** Structured document (Resources generator) for rendering + export. */
+    document?: ResourceDocument;
   }>;
   sources: Array<{
     chunkId: string;
@@ -425,6 +464,46 @@ export interface ResourceJobStatus extends GenerateResult {
 /** Chunk 12: poll a background resource-generation job. */
 export const getResourceJobStatus = (jobId: string) =>
   request<ResourceJobStatus>(`/api/suggestions/generate/status/${jobId}`);
+
+/**
+ * Download a generated resource as a real document.
+ * format: 'html' | 'docx' | 'pdf' | 'json'. Triggers a browser download of the
+ * file produced by the backend (Word / PDF / printable HTML / raw JSON).
+ */
+export async function downloadResourceDocument(
+  jobId: string,
+  format: 'html' | 'docx' | 'pdf' | 'json',
+): Promise<void> {
+  const token = getToken();
+  const res = await fetch(
+    `${API_URL}/api/suggestions/documents/${jobId}?format=${format}`,
+    {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+  if (!res.ok) {
+    let message = `Download failed (${res.status})`;
+    try {
+      const data = await res.json();
+      message = data.message || message;
+    } catch {
+      // ignore
+    }
+    throw new Error(message);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  // Derive the filename from the Content-Disposition header when present.
+  const disp = res.headers.get('Content-Disposition') || '';
+  const m = disp.match(/filename="?([^";]+)"?/);
+  a.download = m ? m[1] : `resource.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 export const updateSuggestionStatus = (
   id: string,

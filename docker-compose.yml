@@ -116,6 +116,12 @@ services:
       # 3100-3199) and passed in as BACKEND_PORT. The container always listens
       # on 3001 internally (PORT above).
       - "${BACKEND_PORT:-3100}:3001"
+    volumes:
+      # Headless Chromium cache for PDF export. The host's puppeteer cache
+      # (~/.cache/puppeteer) is mounted read-only so the container can launch
+      # the same Chrome build without re-downloading it. If absent, PDF export
+      # is unavailable but HTML/DOCX/JSON still work.
+      - ${PUPPETEER_CACHE_DIR:-$HOME/.cache/puppeteer}:/home/node/.cache/puppeteer:ro
     depends_on:
       postgres:
         condition: service_healthy

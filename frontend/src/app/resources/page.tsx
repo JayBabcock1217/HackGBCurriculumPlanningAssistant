@@ -28,10 +28,13 @@ import {
   getStudents,
   getCurricula,
   getActivityTypes,
+  downloadResourceDocument,
   type Student,
   type Curriculum,
   type ResourceJobStatus,
   type ActivityType,
+  type ResourceDocument,
+  type DocBlock,
 } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { AppShell } from '@/components/app-shell';
@@ -65,6 +68,135 @@ function saveStoredJob(job: StoredJob): void {
   } catch {
     // ignore
   }
+}
+
+/** Render a structured ResourceDocument block as React elements. */
+function DocBlockView({ block }: { block: DocBlock }) {
+  switch (block.kind) {
+    case 'heading': {
+      const lvl = Math.min(3, block.level + 1);
+      const cls =
+        block.level === 1
+          ? 'text-lg font-semibold text-foreground mt-5 mb-2 border-b border-border pb-1'
+          : block.level === 2
+            ? 'text-base font-semibold text-foreground mt-4 mb-1.5'
+            : 'text-sm font-semibold text-foreground mt-3 mb-1';
+      const Tag = (`h${lvl}`) as 'h2';
+      return <Tag className={cls}>{block.text}</Tag>;
+    }
+    case 'paragraph':
+      return <p className="my-2 leading-relaxed">{block.text}</p>;
+    case 'list':
+      return block.ordered ? (
+        <ol className="my-2 list-decimal space-y-1 pl-5">
+          {block.items.map((it, i) => (
+            <li key={i}>{it}</li>
+          ))}
+        </ol>
+      ) : (
+        <ul className="my-2 list-disc space-y-1 pl-5">
+          {block.items.map((it, i) => (
+            <li key={i}>{it}</li>
+          ))}
+        </ul>
+      );
+    case 'table':
+      return (
+        <div className="my-3 overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                {block.table.headers.map((h, i) => (
+                  <th key={i} className="border border-border bg-muted px-2 py-1 text-left font-semibold">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.table.rows.map((r, ri) => (
+                <tr key={ri}>
+                  {r.map((c, ci) => (
+                    <td key={ci} className="border border-border px-2 py-1 align-top">
+                      {c}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    case 'problems':
+      return (
+        <div className="my-2">
+          {block.label && <div className="mb-1 text-sm font-semibold">{block.label}</div>}
+          <ol className="space-y-2 pl-5 list-decimal">
+            {block.problems.map((p, i) => (
+              <li key={i}>
+                {p.text}
+                {p.points && <span className="ml-1 text-xs text-muted-foreground">[{p.points}]</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      );
+    case 'answerKey':
+      return (
+        <div className="my-3 border-t-2 border-dashed border-border pt-3">
+          <div className="mb-1 text-sm font-semibold uppercase tracking-wide">Answer Key</div>
+          <ol className="space-y-1 pl-5 list-decimal text-sm">
+            {block.problems.map((p, i) => (
+              <li key={i}>
+                {p.text}
+                {p.answer && <span className="font-semibold"> — {p.answer}</span>}
+                {p.solution && <span className="block text-xs text-muted-foreground">Solution: {p.solution}</span>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      );
+    case 'callout': {
+      const variant = (block.variant || 'note').toLowerCase();
+      const tone =
+        variant === 'accommodation' || variant === 'tip'
+          ? 'border-sky-400 bg-sky-50 text-sky-900 dark:bg-sky-950/40 dark:text-sky-200'
+          : variant === 'warning'
+            ? 'border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+            : 'border-border bg-muted/50 text-foreground/90';
+      return (
+        <div className={`my-3 border-l-4 px-3 py-2 text-sm ${tone}`}>
+          <span className="mb-0.5 block text-xs font-semibold uppercase tracking-wide opacity-70">
+            {block.variant || 'note'}
+          </span>
+          {block.text}
+        </div>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+/** Render the full structured document, or fall back to plain text. */
+function DocumentView({ doc, plain }: { doc?: ResourceDocument; plain: string }) {
+  if (doc && Array.isArray(doc.blocks) && doc.blocks.length > 0) {
+    return (
+      <div>
+        {doc.meta && (
+          <p className="mb-2 text-xs text-muted-foreground">
+            {[doc.meta.subject && `Subject: ${doc.meta.subject}`, doc.meta.grade && `Grade: ${doc.meta.grade}`, doc.meta.activityType, doc.meta.studentName && `For: ${doc.meta.studentName}`]
+              .filter(Boolean)
+              .join('  ·  ')}
+          </p>
+        )}
+        {doc.blocks.map((b, i) => (
+          <DocBlockView key={i} block={b} />
+        ))}
+      </div>
+    );
+  }
+  return <div className="whitespace-pre-line leading-relaxed">{plain}</div>;
 }
 
 function clearStoredJob(): void {
@@ -106,6 +238,7 @@ export default function ResourcesPage() {
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ResourceJobStatus['options'][number] | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -224,17 +357,18 @@ export default function ResourcesPage() {
     }
   }
 
-  function download() {
-    if (!result) return;
-    const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${(result.title || 'resource').replace(/\s+/g, '-').toLowerCase()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  /** Trigger a backend document export (pdf/docx/html) for the current job. */
+  async function downloadDoc(format: 'pdf' | 'docx' | 'html') {
+    if (!job) return;
+    setDownloading(format.toUpperCase());
+    setError(null);
+    try {
+      await downloadResourceDocument(job.jobId, format);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed');
+    } finally {
+      setDownloading(null);
+    }
   }
 
   function discardJob() {
@@ -418,22 +552,24 @@ export default function ResourcesPage() {
                   {result.summary && ` — ${result.summary}`}
                 </CardDescription>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={download}>
-                  <Download /> {t('resources.download')}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => downloadDoc('pdf')} disabled={!!downloading}>
+                  <Download /> {downloading || t('resources.downloadPdf')}
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={discardJob}
-                >
+                <Button variant="outline" size="sm" onClick={() => downloadDoc('docx')} disabled={!!downloading}>
+                  <Download /> {t('resources.downloadWord')}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => downloadDoc('html')} disabled={!!downloading}>
+                  <Download /> {t('resources.downloadHtml')}
+                </Button>
+                <Button variant="secondary" size="sm" onClick={discardJob}>
                   <RefreshCw /> {t('resources.newResource')}
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="whitespace-pre-line rounded-md bg-muted/40 p-4 text-sm leading-relaxed text-foreground/80">
-                {result.content}
+              <div className="rounded-md bg-muted/40 p-4 text-sm text-foreground/90">
+                <DocumentView doc={result.document} plain={result.content} />
               </div>
             </CardContent>
           </Card>

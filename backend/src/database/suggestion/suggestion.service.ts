@@ -101,6 +101,8 @@ export class SuggestionService {
       summary?: string;
       modelUsed?: string;
       sources?: Array<{ chunkId: string; similarity: number }>;
+      /** Structured document (Resources generator) for HTML/DOCX/PDF export. */
+      document?: Record<string, unknown>;
       status?: 'pending' | 'failed';
       error?: string;
     },
@@ -114,6 +116,7 @@ export class SuggestionService {
     const details = (existing.details as Record<string, unknown>) || {};
     if (result.summary) details.summary = result.summary;
     if (result.sources) details.sources = result.sources;
+    if (result.document) details.document = result.document;
     if (result.error) details.error = result.error;
     existing.details = details;
     return this.suggestionRepo.save(existing);

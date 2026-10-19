@@ -56,14 +56,24 @@ export class OllamaAdapter implements LlmAdapter {
 
     let res: Response;
     try {
+      // Small local models can take a while for large documents; give a generous
+      // timeout so a slow (but healthy) generation isn't killed mid-request.
+      const timeout = AbortSignal.timeout(180000);
+      const signal = options.signal
+        ? AbortSignal.any([options.signal, timeout])
+        : timeout;
       res = await fetch(`${this.baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: options.signal,
+        signal,
       });
     } catch (err) {
-      throw this.wrapError(`Ollama unreachable at ${this.baseUrl}: ${String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('abort') || msg.includes('timeout')) {
+        throw this.wrapError(`Ollama chat timed out after 180s at ${this.baseUrl}`);
+      }
+      throw this.wrapError(`Ollama unreachable at ${this.baseUrl}: ${msg}`);
     }
 
     if (!res.ok) {
